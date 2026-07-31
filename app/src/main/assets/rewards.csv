@@ -1,0 +1,12 @@
+﻿NOMBRE DEL PREMIO,IMAGEN,COSTE,CODIGO
+Cafe de vainilla,prizes/cafe_prize.png,5,CAFE-GRATIS
+Helado,prizes/helado_prize.png,15,HELADO-GRATIS
+Conguitos,prizes/conguitos_prize.png,30,CONGUITOS-GRATIS
+Palmera del Ibis,prizes/palmera_prize.png,50,PALMERA-GRATIS
+Elegir qué ver,prizes/netflix_prize.png,75,NETFLIX-FIR
+Sesion de besitos,prizes/besitos_prize.png,100,BESITOS-5-EUROS
+Cena romantica,prizes/cena_prize.png,200,CENA-PREMIUM
+Noche de pasion,prizes/pasion_prize.png,500,PASION-PREMIUM
+1 Moflete,prizes/moflete_prize.png,1000,MOFLETE-PREMIUM
+2 Mofletes,prizes/doblemoflete_prize.png,2000,DOBLEMOFLETE-PREMIUM
+Escapada de fin de semana,prizes/escapada_prize.png,5000,ESCAPADA-PREMIUM
