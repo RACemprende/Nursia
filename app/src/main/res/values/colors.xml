@@ -2,8 +2,8 @@
 <!-- Design tokens based on Cursor design system -->
 <resources>
     <!-- Brand & Accent -->
-    <color name="primary">#f54e00</color>
-    <color name="primary_active">#d04200</color>
+    <color name="primary">#8CD2C0</color>
+    <color name="primary_active">#70BFA9</color>
     <color name="on_primary">#ffffff</color>
 
     <!-- Canvas / Surfaces -->
@@ -31,14 +31,14 @@
     <color name="semantic_error_fill">#fad9e0</color>
 
     <!-- Timeline pastels — used for quiz answer option buttons -->
-    <color name="timeline_thinking">#dfa88f</color>
-    <color name="timeline_thinking_border">#c08070</color>
+    <color name="timeline_thinking">#BEE9DF</color>
+    <color name="timeline_thinking_border">#8CCDBB</color>
     <color name="timeline_grep">#9fc9a2</color>
     <color name="timeline_grep_border">#7aaa7e</color>
     <color name="timeline_read">#9fbbe0</color>
     <color name="timeline_read_border">#7a9abf</color>
     <color name="timeline_edit">#c0a8dd</color>
     <color name="timeline_edit_border">#9b87bf</color>
-    <color name="timeline_done">#e8c87a</color>
-    <color name="timeline_done_border">#c09a40</color>
+    <color name="timeline_done">#CBEFE7</color>
+    <color name="timeline_done_border">#9CCFC1</color>
 </resources>

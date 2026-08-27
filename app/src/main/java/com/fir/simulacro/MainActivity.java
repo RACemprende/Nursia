@@ -20,6 +20,10 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.PopupWindow;
+import android.graphics.drawable.AnimationDrawable;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -40,6 +44,7 @@ import java.util.Locale;
 public class MainActivity extends AppCompatActivity {
     private static final String PAUSED_QUIZ_PREFS = "paused_quiz_prefs";
     private static final String PAUSED_QUIZ_KEY = "paused_quiz_json";
+    private static final String PREF_QUIZ_TUTORIAL_SEEN = "quiz_tutorial_seen";
     private static final int REAL_EXAM_QUESTION_COUNT = 200;
     private static final int WRONG_ANSWERS_PER_PENALTY = 3;
     private static final int[] OPTION_BUTTON_BACKGROUNDS = {
@@ -80,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView earnedPointsText;
     private Button downloadCsvButton;
     private Button restartButton;
+    private Button copyPromptButton;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private long startTimeMs = 0L;
@@ -131,6 +137,13 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Mostrar onboarding si es primera vez
+        if (OnboardingHelper.isOnboardingNeeded(this)) {
+            startActivity(new Intent(this, OnboardingActivity.class));
+            finish();
+            return;
+        }
+
         bindViews();
         appDatabaseHelper = new AppDatabaseHelper(this);
         firQuestionsDbHelper = new FirQuestionsDbHelper(this);
@@ -166,6 +179,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        CloudSyncManager.syncSilently(this);
         refreshPointsUi();
         updatePausedQuizUi();
     }
@@ -201,6 +215,7 @@ public class MainActivity extends AppCompatActivity {
         earnedPointsText = findViewById(R.id.earnedPointsText);
         downloadCsvButton = findViewById(R.id.downloadCsvButton);
         restartButton = findViewById(R.id.restartButton);
+        copyPromptButton = findViewById(R.id.copyPromptButton);
     }
 
     private void setupListeners() {
@@ -212,11 +227,15 @@ public class MainActivity extends AppCompatActivity {
                 "No hay preguntas en Fallada o Duda_Fallada.",
                 QuizMode.FAILURES
         ));
-        doubtsButton.setOnClickListener(v -> startSimulation(
-                createStateList("Duda_Primera", "Duda_Segunda"),
-                "No hay preguntas en Duda_Primera o Duda_Segunda.",
-                QuizMode.DOUBTS
-        ));
+        doubtsButton.setOnClickListener(v -> {
+            List<FirQuestion> doubtQuestions = loadQuestionsFromDatabase(createStateList("Duda_Primera", "Duda_Segunda"));
+            if (doubtQuestions.isEmpty()) {
+                showDoubtsEmptyDialog();
+            } else {
+                startSimulation(createStateList("Duda_Primera", "Duda_Segunda"),
+                        "No hay preguntas en Duda_Primera o Duda_Segunda.", QuizMode.DOUBTS);
+            }
+        });
         newQuestionsButton.setOnClickListener(v -> startSimulation(
                 createStateList("Pendiente"),
                 "No hay preguntas pendientes.",
@@ -230,6 +249,7 @@ public class MainActivity extends AppCompatActivity {
         exitQuizButton.setOnClickListener(v -> confirmExitQuiz());
         pauseQuizButton.setOnClickListener(v -> pauseQuiz());
         restartButton.setOnClickListener(v -> showStartScreen());
+        copyPromptButton.setOnClickListener(v -> copyQuestionPromptToClipboard());
         downloadCsvButton.setOnClickListener(v ->
                 createCsvLauncher.launch("resultado_simulacro_enfermeria.csv")
         );
@@ -271,6 +291,13 @@ public class MainActivity extends AppCompatActivity {
         quizLayout.setVisibility(View.VISIBLE);
 
         showQuestion();
+
+        // Tutorial primera vez
+        boolean tutorialSeen = getSharedPreferences(PAUSED_QUIZ_PREFS, MODE_PRIVATE)
+                .getBoolean(PREF_QUIZ_TUTORIAL_SEEN, false);
+        if (!tutorialSeen) {
+            handler.postDelayed(this::showFirstQuizTutorial, 600);
+        }
     }
 
     private void moveToNextQuestion() {
@@ -288,7 +315,7 @@ public class MainActivity extends AppCompatActivity {
         FirQuestion q = selectedQuestions.get(currentIndex);
         currentQuestionStartMs = SystemClock.elapsedRealtime();
         progressText.setText("Pregunta " + (currentIndex + 1) + "/" + selectedQuestions.size());
-        yearText.setText("Año: " + q.year);
+        yearText.setText("A\u00f1o: " + q.year);
         questionText.setText(q.statement);
         questionText.setMaxLines(Integer.MAX_VALUE);
         questionText.setEllipsize(null);
@@ -353,6 +380,10 @@ public class MainActivity extends AppCompatActivity {
         long durationMs = SystemClock.elapsedRealtime() - currentQuestionStartMs;
         long timestampMs = System.currentTimeMillis();
         highlightAnswerOptions(selectedIndex, q.correctIndex, correct);
+
+        if (correct) {
+            score++;
+        }
 
         results.add(new AnswerResult(
                 q.year,
@@ -490,17 +521,17 @@ public class MainActivity extends AppCompatActivity {
     private String buildFeedbackText(FirQuestion question, String status) {
         switch (status) {
             case "Acertada":
-                return "✅ Correcta";
+                return "Correcta";
             case "Fallada":
-                return "❌ Incorrecta";
+                return "Incorrecta";
             case "Duda_Primera":
-                return "✅ Dudada: acertaste con la respuesta pulsada.";
+                return "Dudada: acertaste con la respuesta pulsada.";
             case "Duda_Segunda":
-                return "❌ Dudada";
+                return "Dudada";
             case "Duda_Fallada":
-                return "❌ Dudada";
+                return "Dudada";
             case "Vacia":
-                return "⬜ Pregunta dejada en blanco";
+                return "Pregunta dejada en blanco";
             default:
                 return "";
         }
@@ -596,18 +627,18 @@ public class MainActivity extends AppCompatActivity {
 
     private void showFirstSimulationOfDayDialog(Runnable onDismiss) {
         int days = appDatabaseHelper.getConsecutiveDaysStreak();
-        String title = days <= 1 ? "¡Buen comienzo!" : "¡Racha de " + days + " días!";
+        String title = days <= 1 ? "Buen comienzo!" : "Racha de " + days + " dias!";
         String message = days <= 1
-                ? "Has completado tu primer simulacro de hoy. ¡Sigue así y empieza tu racha!"
+                ? "Has completado tu primer simulacro de hoy. Sigue asi y empieza tu racha!"
                 : "Has completado tu primer simulacro de hoy.\n\n" +
-                  "Llevas " + days + " días seguidos haciendo al menos un simulacro. " +
-                  "¡Enhorabuena por la racha, sigue así!";
+                  "Llevas " + days + " dias seguidos haciendo al menos un simulacro. " +
+                  "Enhorabuena por la racha, sigue asi!";
 
         new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setMessage(message)
                 .setCancelable(false)
-                .setPositiveButton("¡A seguir!", (dialog, which) -> {
+                .setPositiveButton("A seguir!", (dialog, which) -> {
                     dialog.dismiss();
                     if (onDismiss != null) {
                         onDismiss.run();
@@ -677,7 +708,7 @@ public class MainActivity extends AppCompatActivity {
     private void saveResultsCsv(Uri uri) {
         try (OutputStream stream = getContentResolver().openOutputStream(uri);
              OutputStreamWriter writer = new OutputStreamWriter(stream)) {
-            writer.write("Año,Número de pregunta,Enunciado,Respuesta marcada,Resultado\n");
+            writer.write("A\u00f1o,N\u00famero de pregunta,Enunciado,Respuesta marcada,Resultado\n");
             for (AnswerResult r : results) {
                 String safeStatement = r.statement.replace("\"", "\"\"");
                 String safeSelected = r.selectedAnswer.replace("\"", "\"\"");
@@ -696,7 +727,7 @@ public class MainActivity extends AppCompatActivity {
         Intent baseIntent = new Intent(Intent.ACTION_SEND);
         baseIntent.setType("text/csv");
         baseIntent.putExtra(Intent.EXTRA_STREAM, uri);
-        baseIntent.putExtra(Intent.EXTRA_SUBJECT, "Resultados simulacro OPE SESPA");
+        baseIntent.putExtra(Intent.EXTRA_SUBJECT, "Resultados NURSIA");
         baseIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
         Intent whatsappIntent = new Intent(baseIntent);
@@ -750,7 +781,7 @@ public class MainActivity extends AppCompatActivity {
 
         new AlertDialog.Builder(this)
                 .setTitle("Salir del examen")
-                .setMessage("Se perderá el progreso no terminado de este examen. ¿Quieres salir y descartarlo?")
+                .setMessage("Se perdera el progreso no terminado de este examen. Quieres salir y descartarlo?")
                 .setNegativeButton("Cancelar", null)
                 .setPositiveButton("Salir", (dialog, which) -> exitQuizWithoutSaving())
                 .show();
@@ -783,7 +814,7 @@ public class MainActivity extends AppCompatActivity {
         String pausedJson = getPausedQuizPrefs().getString(PAUSED_QUIZ_KEY, null);
         if (pausedJson == null) {
             updatePausedQuizUi();
-            Toast.makeText(this, "No hay ningún examen en pausa.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No hay ningun examen en pausa.", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -1001,6 +1032,12 @@ public class MainActivity extends AppCompatActivity {
     private void applyBackgroundForMode(QuizMode mode) {
         if (rootScrollView != null) {
             rootScrollView.setBackgroundResource(mode.backgroundResId);
+            if (rootScrollView.getBackground() instanceof AnimationDrawable) {
+                AnimationDrawable animated = (AnimationDrawable) rootScrollView.getBackground();
+                animated.setEnterFadeDuration(2000);
+                animated.setExitFadeDuration(2000);
+                animated.start();
+            }
         }
     }
 
@@ -1102,6 +1139,38 @@ public class MainActivity extends AppCompatActivity {
         showBadgeUnlockedDialog(badge, () -> showDailyBadgeSequence(badges, index + 1));
     }
 
+
+    private void copyQuestionPromptToClipboard() {
+        if (selectedQuestions == null || selectedQuestions.isEmpty() || currentIndex >= selectedQuestions.size()) {
+            Toast.makeText(this, "No hay pregunta activa", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        FirQuestion q = selectedQuestions.get(currentIndex);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Soy enfermero/a preparando las oposiciones OPE SESPA.\n");
+        sb.append("Tengo la siguiente pregunta de examen y quiero que me expliques POR QUE la respuesta correcta es la que es, y por que las demas opciones son incorrectas.\n\n");
+        sb.append("PREGUNTA (A\u00f1o ").append(q.year).append("):\n");
+        sb.append(q.statement).append("\n\n");
+        sb.append("OPCIONES:\n");
+        char letter = 'A';
+        for (int i = 0; i < q.options.size(); i++) {
+            sb.append(letter).append(") ").append(q.options.get(i));
+            if (i == q.correctIndex) {
+                sb.append("  <- RESPUESTA CORRECTA");
+            }
+            sb.append("\n");
+            letter++;
+        }
+        sb.append("\nPor favor, explica el razonamiento clinico o teorico que justifica que la opcion correcta sea la ").append((char)('A' + q.correctIndex)).append(", y desmonta brevemente las otras opciones.");
+
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        ClipData clip = ClipData.newPlainText("Prompt OPE SESPA", sb.toString());
+        if (clipboard != null) {
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(this, "Prompt copiado al portapapeles", Toast.LENGTH_SHORT).show();
+        }
+    }
     private static class FirQuestion {
         final String year;
         final String questionNumber;
@@ -1137,7 +1206,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private enum QuizMode {
-        HOME(R.drawable.bg_home),
+        HOME(R.drawable.bg_gradient_anim),
         ALL(R.drawable.bg_mode_all),
         FAILURES(R.drawable.bg_mode_failures),
         DOUBTS(R.drawable.bg_mode_doubts),
@@ -1149,4 +1218,130 @@ public class MainActivity extends AppCompatActivity {
             this.backgroundResId = backgroundResId;
         }
     }
+
+    // ─── Diálogo explicativo de Dudas vacías ──────────────────────────────────
+
+    private void showDoubtsEmptyDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("\uD83E\uDD14  Sección Dudas")
+                .setMessage(
+                        "Aún no tienes preguntas guardadas en esta sección.\n\n" +
+                        "Las dudas se registran cuando al responder marcas también el \u2611 checkbox " +
+                        "de otra opción que te parece posible.\n\n" +
+                        "\u25B6  Marca el \u2611 de la respuesta alternativa que te genera duda.\n" +
+                        "\u25B6  Pulsa la respuesta que crees correcta.\n\n" +
+                        "La pregunta quedará guardada aquí para repasarla más adelante. " +
+                        "Cuantas más preguntas hagas, más se irá llenando esta sección."
+                )
+                .setPositiveButton("Entendido", null)
+                .show();
+    }
+
+    // ─── Tutorial primera vez ─────────────────────────────────────────────────
+
+    private static class TutorialStep {
+        final String emoji;
+        final String title;
+        final String text;
+        final int anchorViewId; // 0 = sin ancla específica
+
+        TutorialStep(String emoji, String title, String text, int anchorViewId) {
+            this.emoji = emoji;
+            this.title = title;
+            this.text = text;
+            this.anchorViewId = anchorViewId;
+        }
+    }
+
+    private void showFirstQuizTutorial() {
+        List<TutorialStep> steps = new ArrayList<>();
+        steps.add(new TutorialStep(
+                "\uD83D\uDCDD", "Cómo responder",
+                "Pulsa el botón con la opción que creas correcta.\n\n" +
+                "La respuesta se marcará en verde si aciertas, y en rojo si fallas " +
+                "(también se mostrará la correcta).",
+                R.id.optionsContainer
+        ));
+        steps.add(new TutorialStep(
+                "\u2611", "Marcar una duda",
+                "Si dudas entre dos respuestas, marca primero el checkbox ☑ de la opción alternativa " +
+                "y luego pulsa la que crees que es correcta.\n\n" +
+                "La pregunta quedará guardada en la sección \"Dudas\" para repasarla.",
+                R.id.optionsContainer
+        ));
+        steps.add(new TutorialStep(
+                "\u26AA", "Dejar en blanco",
+                "Si no sabes la respuesta o prefieres no contestar, pulsa \"Dejar vacía\".\n\n" +
+                "No penaliza más que un fallo normal.",
+                R.id.blankButton
+        ));
+        steps.add(new TutorialStep(
+                "\uD83E\uDD16", "Preguntar a la IA",
+                "Pulsa \"Preguntar a IA\" para copiar un prompt explicativo al portapapeles.\n\n" +
+                "Luego pégalo en ChatGPT, Gemini o cualquier IA para obtener una explicación clínica detallada.",
+                R.id.copyPromptButton
+        ));
+        showTutorialStep(steps, 0);
+    }
+
+    private void showTutorialStep(List<TutorialStep> steps, int index) {
+        if (index >= steps.size()) {
+            getSharedPreferences(PAUSED_QUIZ_PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(PREF_QUIZ_TUTORIAL_SEEN, true)
+                    .apply();
+            return;
+        }
+        TutorialStep step = steps.get(index);
+
+        View bubbleView = LayoutInflater.from(this).inflate(R.layout.layout_tutorial_bubble, null, false);
+        TextView emojiView = bubbleView.findViewById(R.id.tutorialEmoji);
+        TextView titleView = bubbleView.findViewById(R.id.tutorialTitle);
+        TextView textView = bubbleView.findViewById(R.id.tutorialText);
+        Button nextBtn = bubbleView.findViewById(R.id.tutorialNext);
+
+        emojiView.setText(step.emoji);
+        titleView.setText(step.title);
+        textView.setText(step.text);
+
+        boolean isLast = (index == steps.size() - 1);
+        nextBtn.setText(isLast ? "Listo \u2714" : "Siguiente \u203A");
+
+        PopupWindow popup = new PopupWindow(
+                bubbleView,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                false
+        );
+        popup.setElevation(dpToPx(8));
+        popup.setOutsideTouchable(false);
+
+        nextBtn.setOnClickListener(v -> {
+            popup.dismiss();
+            showTutorialStep(steps, index + 1);
+        });
+
+        View anchor = step.anchorViewId != 0 ? findViewById(step.anchorViewId) : quizLayout;
+        if (anchor == null) anchor = quizLayout;
+        final View finalAnchor = anchor;
+
+        finalAnchor.post(() -> {
+            int[] location = new int[2];
+            finalAnchor.getLocationOnScreen(location);
+            bubbleView.measure(
+                    android.view.View.MeasureSpec.makeMeasureSpec(dpToPx(290), android.view.View.MeasureSpec.AT_MOST),
+                    android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED)
+            );
+            int popupW = bubbleView.getMeasuredWidth();
+            int screenW = getResources().getDisplayMetrics().widthPixels;
+            int xOff = Math.min(location[0] + dpToPx(8), screenW - popupW - dpToPx(16));
+            xOff = Math.max(xOff, dpToPx(16));
+            int yOff = location[1] - bubbleView.getMeasuredHeight() - dpToPx(16);
+            if (yOff < dpToPx(60)) {
+                yOff = location[1] + finalAnchor.getHeight() + dpToPx(8);
+            }
+            popup.showAtLocation(finalAnchor, android.view.Gravity.NO_GRAVITY, xOff, yOff);
+        });
+    }
 }
+

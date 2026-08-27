@@ -3,6 +3,8 @@ package com.fir.simulacro;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import org.json.JSONObject;
+
 public final class UserSettings {
 
     private static final String PREFS_NAME = "fir_user_settings";
@@ -52,6 +54,7 @@ public final class UserSettings {
                 .putInt(KEY_REMINDER_HOUR, clamp(hour, 0, 23))
                 .putInt(KEY_REMINDER_MINUTE, clamp(minute, 0, 59))
                 .apply();
+        new AppDatabaseHelper(context).markCloudDirty();
     }
 
     public static void saveQuizQuestionCount(Context context, int count) {
@@ -66,6 +69,7 @@ public final class UserSettings {
                 .edit()
                 .putInt(KEY_QUIZ_QUESTION_COUNT, normalized)
                 .apply();
+        new AppDatabaseHelper(context).markCloudDirty();
     }
 
     public static void saveAccuracyThresholdPercent(Context context, int thresholdPercent) {
@@ -73,6 +77,28 @@ public final class UserSettings {
                 .edit()
                 .putInt(KEY_ACCURACY_THRESHOLD_PERCENT, clamp(thresholdPercent, 0, 100))
                 .apply();
+        new AppDatabaseHelper(context).markCloudDirty();
+    }
+
+    public static JSONObject exportSnapshot(Context context) {
+        JSONObject json = new JSONObject();
+        try {
+            json.put(KEY_REMINDER_HOUR, getReminderHour(context));
+            json.put(KEY_REMINDER_MINUTE, getReminderMinute(context));
+            json.put(KEY_QUIZ_QUESTION_COUNT, getQuizQuestionCount(context));
+            json.put(KEY_ACCURACY_THRESHOLD_PERCENT, getAccuracyThresholdPercent(context));
+        } catch (Exception ignored) {
+        }
+        return json;
+    }
+
+    public static void importSnapshot(Context context, JSONObject json) {
+        if (json == null) {
+            return;
+        }
+        saveReminderTime(context, json.optInt(KEY_REMINDER_HOUR, DEFAULT_REMINDER_HOUR), json.optInt(KEY_REMINDER_MINUTE, DEFAULT_REMINDER_MINUTE));
+        saveQuizQuestionCount(context, json.optInt(KEY_QUIZ_QUESTION_COUNT, DEFAULT_QUIZ_QUESTION_COUNT));
+        saveAccuracyThresholdPercent(context, json.optInt(KEY_ACCURACY_THRESHOLD_PERCENT, DEFAULT_ACCURACY_THRESHOLD_PERCENT));
     }
 
     private static SharedPreferences getPrefs(Context context) {

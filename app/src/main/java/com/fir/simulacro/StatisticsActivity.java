@@ -1,382 +1,265 @@
 package com.fir.simulacro;
 
-import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
-import android.widget.RadioGroup;
-import android.widget.Spinner;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class StatisticsActivity extends AppCompatActivity {
-    private Spinner subjectSpinner;
-    private Spinner startMonthSpinner;
-    private Spinner endMonthSpinner;
-    private Button applyFiltersButton;
     private Button backButton;
-    private TextView summaryText;
-    private ProgressBar correctProgressBar;
-    private TextView correctPercentText;
-    private ProgressBar failedProgressBar;
-    private TextView failedPercentText;
-    private ProgressBar doubtedProgressBar;
-    private TextView doubtedPercentText;
-    private ProgressBar doubtAccuracyProgressBar;
-    private TextView doubtAccuracyText;
-    private TextView noDataText;
-    private LinearLayout dailyChartContainer;
-
-    private TextView consecutiveDaysText;
-    private TextView noSimulacrosDataText;
-    private LinearLayout simulacrosChartContainer;
-    private RadioGroup aciertosGroupByGroup;
-    private TextView noAciertosDataText;
-    private LinearLayout aciertosChartContainer;
-    private TextView thresholdGoalText;
+    private TextView noHeatmapDataText;
+    private LinearLayout heatmapCalendarContainer;
+    private TextView selectedDayTitleText;
+    private TextView selectedDaySummaryText;
+    private TextView selectedDayAnswersText;
 
     private AppDatabaseHelper appDatabaseHelper;
+    private final Map<String, AppDatabaseHelper.DailyCalendarStats> dailyStatsByDay = new HashMap<>();
+    private String selectedDayKey;
+    private Calendar currentMonth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_statistics);
+        
+        startBackgroundAnimation();
 
         appDatabaseHelper = new AppDatabaseHelper(this);
+        currentMonth = Calendar.getInstance();
+
         bindViews();
-        styleCharts();
-        loadFilters();
-        applyFiltersButton.setOnClickListener(v -> refreshStatistics());
         backButton.setOnClickListener(v -> finish());
-
-        aciertosGroupByGroup.setOnCheckedChangeListener((group, checkedId) -> refreshGroupedCharts());
-
-        refreshStatistics();
+        loadMonthlyCalendar();
     }
 
     private void bindViews() {
-        subjectSpinner = findViewById(R.id.subjectSpinner);
-        startMonthSpinner = findViewById(R.id.startMonthSpinner);
-        endMonthSpinner = findViewById(R.id.endMonthSpinner);
-        applyFiltersButton = findViewById(R.id.applyFiltersButton);
         backButton = findViewById(R.id.backButton);
-        summaryText = findViewById(R.id.summaryText);
-        correctProgressBar = findViewById(R.id.correctProgressBar);
-        correctPercentText = findViewById(R.id.correctPercentText);
-        failedProgressBar = findViewById(R.id.failedProgressBar);
-        failedPercentText = findViewById(R.id.failedPercentText);
-        doubtedProgressBar = findViewById(R.id.doubtedProgressBar);
-        doubtedPercentText = findViewById(R.id.doubtedPercentText);
-        doubtAccuracyProgressBar = findViewById(R.id.doubtAccuracyProgressBar);
-        doubtAccuracyText = findViewById(R.id.doubtAccuracyText);
-        noDataText = findViewById(R.id.noDataText);
-        dailyChartContainer = findViewById(R.id.dailyChartContainer);
-
-        consecutiveDaysText = findViewById(R.id.consecutiveDaysText);
-        noSimulacrosDataText = findViewById(R.id.noSimulacrosDataText);
-        simulacrosChartContainer = findViewById(R.id.simulacrosChartContainer);
-        aciertosGroupByGroup = findViewById(R.id.aciertosGroupByGroup);
-        noAciertosDataText = findViewById(R.id.noAciertosDataText);
-        aciertosChartContainer = findViewById(R.id.aciertosChartContainer);
-        thresholdGoalText = findViewById(R.id.thresholdGoalText);
+        noHeatmapDataText = findViewById(R.id.noHeatmapDataText);
+        heatmapCalendarContainer = findViewById(R.id.heatmapCalendarContainer);
+        selectedDayTitleText = findViewById(R.id.selectedDayTitleText);
+        selectedDaySummaryText = findViewById(R.id.selectedDaySummaryText);
+        selectedDayAnswersText = findViewById(R.id.selectedDayAnswersText);
     }
 
-    private void styleCharts() {
-        correctProgressBar.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#2E7D32")));
-        failedProgressBar.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#C62828")));
-        doubtedProgressBar.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#EF6C00")));
-        doubtAccuracyProgressBar.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#1565C0")));
-    }
+    private void loadMonthlyCalendar() {
+        String monthKey = formatMonthKey(currentMonth);
+        List<AppDatabaseHelper.DailyCalendarStats> entries = appDatabaseHelper.getDailyCalendarStats(monthKey);
 
-    private void loadFilters() {
-        setSpinnerItems(subjectSpinner, appDatabaseHelper.getAvailableSubjects());
-        List<String> months = appDatabaseHelper.getAvailableMonths();
-        setSpinnerItems(startMonthSpinner, months);
-        setSpinnerItems(endMonthSpinner, months);
-    }
-
-    private void setSpinnerItems(Spinner spinner, List<String> items) {
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_spinner_item,
-                items
-        );
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(adapter);
-    }
-
-    private void refreshStatistics() {
-        String subject = String.valueOf(subjectSpinner.getSelectedItem());
-        String startMonth = String.valueOf(startMonthSpinner.getSelectedItem());
-        String endMonth = String.valueOf(endMonthSpinner.getSelectedItem());
-
-        if (!isValidMonthRange(startMonth, endMonth)) {
-            Toast.makeText(this, "El mes inicial no puede ser posterior al final.", Toast.LENGTH_LONG).show();
-            return;
+        dailyStatsByDay.clear();
+        for (AppDatabaseHelper.DailyCalendarStats entry : entries) {
+            dailyStatsByDay.put(entry.day, entry);
         }
 
-        AppDatabaseHelper.StatisticsData data = appDatabaseHelper.getStatistics(subject, startMonth, endMonth);
-        renderStatistics(data);
-        refreshGroupedCharts();
-    }
-
-    private void refreshGroupedCharts() {
-        refreshSimulacrosChart();
-        refreshAciertosChart();
-        refreshQuestionsDoneChart();
-    }
-
-    private String getSelectedGroupBy() {
-        int checkedId = aciertosGroupByGroup.getCheckedRadioButtonId();
-        if (checkedId == R.id.radioAciertosWeek) return "week";
-        if (checkedId == R.id.radioAciertosMonth) return "month";
-        return "day";
-    }
-
-    private void refreshSimulacrosChart() {
-        String groupBy = getSelectedGroupBy();
-        String startMonth = String.valueOf(startMonthSpinner.getSelectedItem());
-        String endMonth = String.valueOf(endMonthSpinner.getSelectedItem());
-        List<AppDatabaseHelper.ChartEntry> entries = appDatabaseHelper.getSimulacrosChart(groupBy, startMonth, endMonth);
-        renderBarChart(simulacrosChartContainer, noSimulacrosDataText, entries,
-                Color.parseColor("#1565C0"), "simulacros");
-    }
-
-    private void refreshAciertosChart() {
-        String groupBy = getSelectedGroupBy();
-
-        String startMonth = String.valueOf(startMonthSpinner.getSelectedItem());
-        String endMonth = String.valueOf(endMonthSpinner.getSelectedItem());
-        int thresholdPercent = UserSettings.getAccuracyThresholdPercent(this);
-        thresholdGoalText.setText("Objetivo: " + thresholdPercent + "%");
-
-        List<AppDatabaseHelper.ChartEntry> entries = appDatabaseHelper.getAciertosChart(groupBy, startMonth, endMonth);
-        renderPercentBarChart(aciertosChartContainer, noAciertosDataText, entries, thresholdPercent);
-    }
-
-    private void refreshQuestionsDoneChart() {
-        String groupBy = getSelectedGroupBy();
-        String subject = String.valueOf(subjectSpinner.getSelectedItem());
-        String startMonth = String.valueOf(startMonthSpinner.getSelectedItem());
-        String endMonth = String.valueOf(endMonthSpinner.getSelectedItem());
-        List<AppDatabaseHelper.ChartEntry> entries = appDatabaseHelper.getQuestionsDoneChart(groupBy, subject, startMonth, endMonth);
-        renderBarChart(dailyChartContainer, noDataText, entries,
-                Color.parseColor("#6A1B9A"), "preguntas");
-    }
-
-    private boolean isValidMonthRange(String startMonth, String endMonth) {
-        if ("Todos".equals(startMonth) || "Todos".equals(endMonth)) {
-            return true;
-        }
-        return startMonth.compareTo(endMonth) <= 0;
-    }
-
-    private void renderStatistics(AppDatabaseHelper.StatisticsData data) {
-        double correctPercent = percentage(data.totalCorrect, data.totalDone);
-        double failedPercent = percentage(data.totalFailed, data.totalDone);
-        double doubtedPercent = percentage(data.totalDoubted, data.totalDone);
-        double doubtAccuracy = percentage(data.doubtSecond, data.doubtFirst + data.doubtSecond);
-
-        summaryText.setText("Preguntas hechas: " + data.totalDone);
-        setPercentBar(correctProgressBar, correctPercent);
-        correctPercentText.setText(formatPercent(correctPercent));
-        setPercentBar(failedProgressBar, failedPercent);
-        failedPercentText.setText(formatPercent(failedPercent));
-        setPercentBar(doubtedProgressBar, doubtedPercent);
-        doubtedPercentText.setText(formatPercent(doubtedPercent));
-        setPercentBar(doubtAccuracyProgressBar, doubtAccuracy);
-        doubtAccuracyText.setText(formatPercent(doubtAccuracy));
-
-        String streak = data.consecutiveDaysStreak == 1
-                ? "1 día" : data.consecutiveDaysStreak + " días";
-        consecutiveDaysText.setText(streak);
-
-    }
-
-    private void renderBarChart(LinearLayout container, TextView noDataView,
-                                 List<AppDatabaseHelper.ChartEntry> entries, int barColor, String unit) {
-        container.removeAllViews();
-        if (entries.isEmpty()) {
-            noDataView.setVisibility(TextView.VISIBLE);
-            return;
-        }
-        noDataView.setVisibility(TextView.GONE);
-
-        int maxValue = 1;
-        for (AppDatabaseHelper.ChartEntry e : entries) {
-            maxValue = Math.max(maxValue, e.value);
+        String todayKey = formatDay(currentMonth.getTime());
+        if (dailyStatsByDay.containsKey(todayKey)) {
+            selectedDayKey = todayKey;
+        } else if (!entries.isEmpty()) {
+            selectedDayKey = entries.get(entries.size() - 1).day;
+        } else {
+            selectedDayKey = formatDay(currentMonth.getTime());
         }
 
-        LinearLayout chartArea = new LinearLayout(this);
-        chartArea.setOrientation(LinearLayout.HORIZONTAL);
-        chartArea.setGravity(Gravity.BOTTOM);
-        chartArea.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(180)
-        ));
+        renderCalendarMonth();
+        renderSelectedDayStats(selectedDayKey);
+        noHeatmapDataText.setVisibility(entries.isEmpty() ? TextView.VISIBLE : TextView.GONE);
+    }
 
-        for (AppDatabaseHelper.ChartEntry e : entries) {
-            LinearLayout column = new LinearLayout(this);
-            column.setOrientation(LinearLayout.VERTICAL);
-            column.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-            LinearLayout.LayoutParams colParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
-            colParams.leftMargin = dpToPx(2);
-            colParams.rightMargin = dpToPx(2);
-            column.setLayoutParams(colParams);
+    private void renderCalendarMonth() {
+        heatmapCalendarContainer.removeAllViews();
 
-            TextView value = new TextView(this);
-            value.setText(String.valueOf(e.value));
-            value.setTextSize(11f);
-            value.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView monthTitle = new TextView(this);
+        monthTitle.setText(formatMonthTitle(currentMonth));
+        monthTitle.setTextSize(16f);
+        monthTitle.setTextColor(Color.parseColor("#1B1B1B"));
+        monthTitle.setPadding(0, 0, 0, dpToPx(6));
+        heatmapCalendarContainer.addView(monthTitle);
 
-            View bar = new View(this);
-            int barHeight = Math.max(dpToPx(8), (int) Math.round((e.value * dpToPx(120)) / maxValue));
-            LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(
+        LinearLayout daysHeader = new LinearLayout(this);
+        daysHeader.setOrientation(LinearLayout.HORIZONTAL);
+        String[] dayLabels = {"L", "M", "X", "J", "V", "S", "D"};
+        for (String label : dayLabels) {
+            TextView dayLabel = new TextView(this);
+            dayLabel.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            dayLabel.setGravity(Gravity.CENTER);
+            dayLabel.setText(label);
+            dayLabel.setTextSize(11f);
+            daysHeader.addView(dayLabel);
+        }
+        heatmapCalendarContainer.addView(daysHeader);
+
+        Calendar monthStart = (Calendar) currentMonth.clone();
+        monthStart.set(Calendar.DAY_OF_MONTH, 1);
+        int totalDays = monthStart.getActualMaximum(Calendar.DAY_OF_MONTH);
+        int firstDayOffset = ((monthStart.get(Calendar.DAY_OF_WEEK) + 5) % 7);
+        int totalCells = firstDayOffset + totalDays;
+        int totalRows = (int) Math.ceil(totalCells / 7.0);
+
+        Calendar pointer = (Calendar) monthStart.clone();
+        pointer.add(Calendar.DAY_OF_MONTH, -firstDayOffset);
+
+        for (int row = 0; row < totalRows; row++) {
+            LinearLayout weekRow = new LinearLayout(this);
+            weekRow.setOrientation(LinearLayout.HORIZONTAL);
+            weekRow.setLayoutParams(new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    barHeight
-            );
-            barParams.topMargin = dpToPx(4);
-            bar.setLayoutParams(barParams);
-            bar.setBackgroundColor(barColor);
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            ));
 
-            TextView label = new TextView(this);
-            label.setText(e.label);
-            label.setTextSize(10f);
-            label.setGravity(Gravity.CENTER_HORIZONTAL);
+            for (int col = 0; col < 7; col++) {
+                boolean inCurrentMonth = pointer.get(Calendar.MONTH) == currentMonth.get(Calendar.MONTH)
+                        && pointer.get(Calendar.YEAR) == currentMonth.get(Calendar.YEAR);
+                String dayKey = formatDay(pointer.getTime());
+                AppDatabaseHelper.DailyCalendarStats dayStats = dailyStatsByDay.get(dayKey);
 
-            TextView unitLabel = new TextView(this);
-            unitLabel.setText(unit);
-            unitLabel.setTextSize(9f);
-            unitLabel.setGravity(Gravity.CENTER_HORIZONTAL);
+                TextView dayCell = new TextView(this);
+                LinearLayout.LayoutParams cellParams = new LinearLayout.LayoutParams(0, dpToPx(36), 1f);
+                cellParams.leftMargin = dpToPx(2);
+                cellParams.rightMargin = dpToPx(2);
+                cellParams.topMargin = dpToPx(2);
+                cellParams.bottomMargin = dpToPx(2);
+                dayCell.setLayoutParams(cellParams);
+                dayCell.setGravity(Gravity.CENTER);
+                dayCell.setTextSize(10f);
+                dayCell.setText(inCurrentMonth ? String.valueOf(pointer.get(Calendar.DAY_OF_MONTH)) : "");
 
-            column.addView(label);
-            column.addView(value);
-            column.addView(bar);
-            column.addView(unitLabel);
-            chartArea.addView(column);
+                if (!inCurrentMonth) {
+                    dayCell.setBackground(buildCellBackground(Color.TRANSPARENT, false));
+                } else {
+                    boolean selected = dayKey.equals(selectedDayKey);
+                    if (dayStats == null) {
+                        dayCell.setTextColor(Color.parseColor("#667085"));
+                        dayCell.setBackground(buildCellBackground(Color.parseColor("#ECEFF3"), selected));
+                        dayCell.setContentDescription(dayKey + ": sin datos");
+                    } else {
+                        int heatColor = computeHeatColor(dayStats, dayKey);
+                        dayCell.setTextColor(Color.WHITE);
+                        dayCell.setBackground(buildCellBackground(heatColor, selected));
+                        dayCell.setContentDescription(dayKey + ": " + formatPercent(dayStats.averageScorePercent));
+                    }
+                    dayCell.setOnClickListener(v -> {
+                        selectedDayKey = dayKey;
+                        renderCalendarMonth();
+                        renderSelectedDayStats(dayKey);
+                    });
+                }
+
+                weekRow.addView(dayCell);
+                pointer.add(Calendar.DAY_OF_MONTH, 1);
+            }
+            heatmapCalendarContainer.addView(weekRow);
         }
-        container.addView(chartArea);
     }
 
-    private void renderPercentBarChart(LinearLayout container, TextView noDataView,
-                                       List<AppDatabaseHelper.ChartEntry> entries, int thresholdPercent) {
-        container.removeAllViews();
-        if (entries.isEmpty()) {
-            noDataView.setVisibility(TextView.VISIBLE);
+    private void renderSelectedDayStats(String dayKey) {
+        AppDatabaseHelper.DailyCalendarStats stats = dailyStatsByDay.get(dayKey);
+        selectedDayTitleText.setText("Día " + formatDisplayDate(dayKey));
+        if (stats == null) {
+            selectedDaySummaryText.setText("Preguntas realizadas: 0\nExámenes acabados: 0\nNota media: 0.0%");
+            selectedDayAnswersText.setText("Aciertos: 0 · Falladas: 0 · En blanco: 0");
             return;
         }
-        noDataView.setVisibility(TextView.GONE);
 
-        int objectiveColor = Color.parseColor("#FF8F00");
-        int aboveColor = Color.parseColor("#2E7D32");
-        int belowColor = Color.parseColor("#C62828");
-        int chartHeight = dpToPx(180);
+        selectedDaySummaryText.setText(
+                "Preguntas realizadas: " + stats.questionsDone +
+                "\nExámenes acabados: " + stats.examsCompleted +
+                "\nNota media: " + formatPercent(stats.averageScorePercent)
+        );
+        selectedDayAnswersText.setText(
+                "Aciertos: " + stats.correctAnswers +
+                " · Falladas: " + stats.failedAnswers +
+                " · En blanco: " + stats.blankAnswers
+        );
+    }
 
-        FrameLayout chartFrame = new FrameLayout(this);
-        chartFrame.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                chartHeight
-        ));
+    private GradientDrawable buildCellBackground(int color, boolean selected) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.RECTANGLE);
+        drawable.setColor(color);
+        drawable.setCornerRadius(dpToPx(6));
+        if (selected) {
+            drawable.setStroke(dpToPx(2), Color.parseColor("#1B1B1B"));
+        }
+        return drawable;
+    }
 
-        LinearLayout columnsRow = new LinearLayout(this);
-        columnsRow.setOrientation(LinearLayout.HORIZONTAL);
-        columnsRow.setGravity(Gravity.BOTTOM);
-        columnsRow.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-        ));
+    private int computeHeatColor(AppDatabaseHelper.DailyCalendarStats stats, String dayKey) {
+        if (stats.questionsDone <= 0 && stats.examsCompleted <= 0) {
+            return Color.parseColor("#ECEFF3");
+        }
+        if (stats.correctAnswers <= 0) {
+            return Color.parseColor("#C62828");
+        }
+        return interpolateColor(Color.parseColor("#C62828"), Color.parseColor("#2E7D32"),
+                clamp(stats.averageScorePercent / 100.0, 0.0, 1.0));
+    }
 
-        for (AppDatabaseHelper.ChartEntry e : entries) {
-            boolean aboveThreshold = e.value >= thresholdPercent;
-            LinearLayout column = new LinearLayout(this);
-            column.setOrientation(LinearLayout.VERTICAL);
-            column.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-            LinearLayout.LayoutParams colParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
-            colParams.leftMargin = dpToPx(2);
-            colParams.rightMargin = dpToPx(2);
-            column.setLayoutParams(colParams);
+    private int interpolateColor(int startColor, int endColor, double ratio) {
+        double safe = clamp(ratio, 0.0, 1.0);
+        int r = (int) Math.round(Color.red(startColor) + (Color.red(endColor) - Color.red(startColor)) * safe);
+        int g = (int) Math.round(Color.green(startColor) + (Color.green(endColor) - Color.green(startColor)) * safe);
+        int b = (int) Math.round(Color.blue(startColor) + (Color.blue(endColor) - Color.blue(startColor)) * safe);
+        return Color.rgb(r, g, b);
+    }
 
-            TextView value = new TextView(this);
-            value.setText(e.value + "%");
-            value.setTextSize(11f);
-            value.setGravity(Gravity.CENTER_HORIZONTAL);
+    private double clamp(double value, double min, double max) {
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
+    }
 
-            View bar = new View(this);
-            int barHeight = Math.max(dpToPx(8), (int) Math.round((e.value * dpToPx(120)) / 100.0));
-            LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    barHeight
+    private String formatMonthKey(Calendar calendar) {
+        return String.format(
+                Locale.US,
+                "%04d-%02d",
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH) + 1
+        );
+    }
+
+    private String formatMonthTitle(Calendar calendar) {
+        SimpleDateFormat formatter = new SimpleDateFormat("MMMM yyyy", new Locale("es", "ES"));
+        String value = formatter.format(calendar.getTime());
+        if (value.isEmpty()) {
+            return "";
+        }
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
+    }
+
+    private String formatDay(java.util.Date date) {
+        return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(date);
+    }
+
+    private String formatDisplayDate(String dayKey) {
+        try {
+            java.util.Date date = new SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dayKey);
+            if (date == null) {
+                return dayKey;
+            }
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(date);
+            return String.format(
+                    Locale.getDefault(),
+                    "%02d/%02d/%04d",
+                    calendar.get(Calendar.DAY_OF_MONTH),
+                    calendar.get(Calendar.MONTH) + 1,
+                    calendar.get(Calendar.YEAR)
             );
-            barParams.topMargin = dpToPx(4);
-            bar.setLayoutParams(barParams);
-            bar.setBackgroundColor(aboveThreshold ? aboveColor : belowColor);
-
-            TextView label = new TextView(this);
-            label.setText(e.label);
-            label.setTextSize(10f);
-            label.setGravity(Gravity.CENTER_HORIZONTAL);
-
-            TextView statusText = new TextView(this);
-            statusText.setText(aboveThreshold ? "↑" : "↓");
-            statusText.setTextSize(10f);
-            statusText.setTextColor(aboveThreshold ? aboveColor : belowColor);
-            statusText.setGravity(Gravity.CENTER_HORIZONTAL);
-
-            column.addView(label);
-            column.addView(value);
-            column.addView(bar);
-            column.addView(statusText);
-            columnsRow.addView(column);
+        } catch (Exception ignored) {
+            return dayKey;
         }
-
-        View objectiveLine = new View(this);
-        FrameLayout.LayoutParams lineParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(2)
-        );
-        int clampedThreshold = Math.max(0, Math.min(100, thresholdPercent));
-        lineParams.topMargin = (int) Math.round((100 - clampedThreshold) * chartHeight / 100.0);
-        objectiveLine.setLayoutParams(lineParams);
-        objectiveLine.setBackgroundColor(objectiveColor);
-
-        TextView objectiveLabel = new TextView(this);
-        FrameLayout.LayoutParams objectiveLabelParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-        );
-        objectiveLabelParams.leftMargin = dpToPx(4);
-        objectiveLabelParams.topMargin = Math.max(0, lineParams.topMargin - dpToPx(18));
-        objectiveLabel.setLayoutParams(objectiveLabelParams);
-        objectiveLabel.setText("Objetivo " + thresholdPercent + "%");
-        objectiveLabel.setTextSize(10f);
-        objectiveLabel.setTextColor(objectiveColor);
-
-        chartFrame.addView(columnsRow);
-        chartFrame.addView(objectiveLine);
-        chartFrame.addView(objectiveLabel);
-        container.addView(chartFrame);
-    }
-
-    private void setPercentBar(ProgressBar progressBar, double value) {
-        progressBar.setProgress((int) Math.round(value));
-    }
-
-    private double percentage(int numerator, int denominator) {
-        if (denominator <= 0) {
-            return 0.0;
-        }
-        return (numerator * 100.0) / denominator;
     }
 
     private String formatPercent(double value) {
@@ -386,5 +269,18 @@ public class StatisticsActivity extends AppCompatActivity {
     private int dpToPx(int dp) {
         float density = getResources().getDisplayMetrics().density;
         return (int) (dp * density);
+    }
+    private void startBackgroundAnimation() {
+        android.view.ViewGroup root = findViewById(android.R.id.content);
+        if (root == null || root.getChildCount() == 0) {
+            return;
+        }
+        android.view.View content = root.getChildAt(0);
+        if (content != null && content.getBackground() instanceof android.graphics.drawable.AnimationDrawable) {
+            android.graphics.drawable.AnimationDrawable animated = (android.graphics.drawable.AnimationDrawable) content.getBackground();
+            animated.setEnterFadeDuration(2000);
+            animated.setExitFadeDuration(2000);
+            animated.start();
+        }
     }
 }

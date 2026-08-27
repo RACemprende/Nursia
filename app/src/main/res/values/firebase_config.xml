@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="firebase_api_key"></string>
+    <string name="firebase_app_id"></string>
+    <string name="firebase_project_id"></string>
+    <string name="firebase_storage_bucket"></string>
+    <string name="firebase_database_url"></string>
+    <string name="firebase_web_client_id"></string>
+</resources>

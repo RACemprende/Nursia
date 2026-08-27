@@ -20,20 +20,20 @@ import java.util.Locale;
 public class BadgesActivity extends AppCompatActivity {
 
     /*
-     * IMÃƒÂGENES DE INSIGNIAS:
+     * IMÁGENES DE INSIGNIAS:
      * Coloca los PNG de insignias en:
      *   FirSimulacroApp/app/src/main/res/drawable-nodpi/
      * con estos nombres exactos:
-     *   badge_daily_1_img.png    Ã¢â€ â€™ Primer dÃƒÂ­a
-     *   badge_daily_3_img.png    Ã¢â€ â€™ 3 dÃƒÂ­as seguidos
-     *   badge_daily_5_img.png    Ã¢â€ â€™ 5 dÃƒÂ­as seguidos
-     *   badge_daily_7_img.png    Ã¢â€ â€™ 7 dÃƒÂ­as seguidos
+     *   badge_daily_1_img.png    – Un día seguido
+     *   badge_daily_3_img.png    – 3 días seguidos
+     *   badge_daily_5_img.png    – 5 días seguidos
+     *   badge_daily_7_img.png    – 7 días seguidos
      *   streak_positive_25_img.png, streak_positive_50_img.png, streak_positive_100_img.png
      *   streak_negative_20_img.png, streak_negative_25_img.png, streak_negative_50_img.png, streak_negative_100_img.png
      *   badge_perfect_exam_img.png, badge_full_database_img.png, badge_first_doubt_hit_img.png
      *   badge_exams_10_img.png, badge_exams_25_img.png, badge_exams_50_img.png, badge_exams_100_img.png
      *   badge_superando_limites_img.png
-     * Los que no tengan PNG mostrarÃƒÂ¡n el placeholder por defecto.
+     * Los que no tengan PNG mostrarán el placeholder por defecto.
      */
 
     private static final int PAGE_SIZE = 6;
@@ -50,6 +50,8 @@ public class BadgesActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_badges);
+        
+        startBackgroundAnimation();
 
         row1 = findViewById(R.id.row1);
         row2 = findViewById(R.id.row2);
@@ -121,7 +123,7 @@ public class BadgesActivity extends AppCompatActivity {
             questionMark.setVisibility(View.GONE);
             img.setOnClickListener(v -> showBadgeDetail(badge));
         } else {
-            img.setImageResource(R.drawable.app_icon);
+            img.setImageResource(R.drawable.badge_locked_default);
             img.clearColorFilter();
             img.setImageAlpha(255);
             questionMark.setVisibility(View.GONE);
@@ -171,5 +173,18 @@ public class BadgesActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         if (appDatabaseHelper != null) appDatabaseHelper.close();
+    }
+    private void startBackgroundAnimation() {
+        android.view.ViewGroup root = findViewById(android.R.id.content);
+        if (root == null || root.getChildCount() == 0) {
+            return;
+        }
+        android.view.View content = root.getChildAt(0);
+        if (content != null && content.getBackground() instanceof android.graphics.drawable.AnimationDrawable) {
+            android.graphics.drawable.AnimationDrawable animated = (android.graphics.drawable.AnimationDrawable) content.getBackground();
+            animated.setEnterFadeDuration(2000);
+            animated.setExitFadeDuration(2000);
+            animated.start();
+        }
     }
 }

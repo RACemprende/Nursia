@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_home"
+    android:background="@drawable/bg_gradient_anim"
     android:fillViewport="true">
 
     <LinearLayout
@@ -135,6 +135,16 @@
                 android:textColor="@color/ink" />
 
             <Button
+                android:id="@+id/onboardingButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/button_soft_action"
+                android:text="Ver tutorial de bienvenida"
+                android:textAllCaps="false"
+                android:textColor="@color/ink" />
+
+            <Button
                 android:id="@+id/saveSettingsButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -148,4 +158,3 @@
     </LinearLayout>
 
 </ScrollView>
-

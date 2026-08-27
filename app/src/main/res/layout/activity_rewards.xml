@@ -2,7 +2,8 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_rewards"
+    android:background="@drawable/bg_gradient_anim"
+    android:padding="16dp"
     android:fillViewport="true">
 
     <LinearLayout
@@ -29,14 +30,55 @@
             android:textSize="26sp"
             android:textColor="@color/ink" />
 
-        <TextView
-            android:id="@+id/rewardsPointsText"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Puntos: 0"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/rewardsPointsText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Puntos: 0"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/prizeBagButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/button_soft_action"
+                android:text="🎒 Mochila"
+                android:textAllCaps="false"
+                android:textColor="@color/ink" />
+
+            <Button
+                android:id="@+id/addRewardButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/button_soft_action"
+                android:text="➕ Añadir"
+                android:textAllCaps="false"
+                android:textColor="@color/ink" />
+
+            <Button
+                android:id="@+id/helpButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/button_soft_action"
+                android:text="?"
+                android:textAllCaps="false"
+                android:textColor="@color/ink"
+                android:textSize="18sp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp" />
+
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/rewardsContainer"
@@ -46,4 +88,3 @@
             android:orientation="vertical" />
     </LinearLayout>
 </ScrollView>
-

@@ -30,6 +30,7 @@ public class SettingsActivity extends AppCompatActivity {
     private TextView permissionStatusText;
     private Button openPermissionSettingsButton;
     private Button testNotificationButton;
+    private Button onboardingButton;
     private Button saveButton;
     private Button cancelButton;
 
@@ -37,6 +38,8 @@ public class SettingsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
+        
+        startBackgroundAnimation();
 
         bindViews();
         setupControls();
@@ -46,6 +49,7 @@ public class SettingsActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        CloudSyncManager.syncSilently(this);
         refreshPermissionStatus();
     }
 
@@ -58,6 +62,7 @@ public class SettingsActivity extends AppCompatActivity {
         permissionStatusText = findViewById(R.id.permissionStatusText);
         openPermissionSettingsButton = findViewById(R.id.openPermissionSettingsButton);
         testNotificationButton = findViewById(R.id.testNotificationButton);
+        onboardingButton = findViewById(R.id.onboardingButton);
         saveButton = findViewById(R.id.saveSettingsButton);
         cancelButton = findViewById(R.id.cancelSettingsButton);
     }
@@ -106,6 +111,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void setupListeners() {
         openPermissionSettingsButton.setOnClickListener(v -> openRelevantPermissionSettings());
         testNotificationButton.setOnClickListener(v -> testNotificationNow());
+        onboardingButton.setOnClickListener(v -> showOnboardingAgain());
         thresholdSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -173,6 +179,12 @@ public class SettingsActivity extends AppCompatActivity {
         Toast.makeText(this, "Notificación de prueba enviada", Toast.LENGTH_SHORT).show();
     }
 
+    private void showOnboardingAgain() {
+        OnboardingHelper.resetOnboarding(this);
+        startActivity(new Intent(this, OnboardingActivity.class));
+        finish();
+    }
+
     private void saveSettings() {
         int hour = hourPicker.getValue();
         int minute = minutePicker.getValue();
@@ -190,5 +202,18 @@ public class SettingsActivity extends AppCompatActivity {
 
         Toast.makeText(this, "Ajustes guardados", Toast.LENGTH_SHORT).show();
         finish();
+    }
+    private void startBackgroundAnimation() {
+        android.view.ViewGroup root = findViewById(android.R.id.content);
+        if (root == null || root.getChildCount() == 0) {
+            return;
+        }
+        android.view.View content = root.getChildAt(0);
+        if (content != null && content.getBackground() instanceof android.graphics.drawable.AnimationDrawable) {
+            android.graphics.drawable.AnimationDrawable animated = (android.graphics.drawable.AnimationDrawable) content.getBackground();
+            animated.setEnterFadeDuration(2000);
+            animated.setExitFadeDuration(2000);
+            animated.start();
+        }
     }
 }

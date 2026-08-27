@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="14dp"
+    android:background="@drawable/tutorial_bubble_bg"
+    android:elevation="8dp">
+
+    <TextView
+        android:id="@+id/tutorialEmoji"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="26sp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="6dp" />
+
+    <TextView
+        android:id="@+id/tutorialTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="6dp" />
+
+    <TextView
+        android:id="@+id/tutorialText"
+        android:layout_width="260dp"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textColor="#E8F5F2"
+        android:lineSpacingMultiplier="1.3" />
+
+    <Button
+        android:id="@+id/tutorialNext"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@android:color/transparent"
+        android:text="Entendido ›"
+        android:textAllCaps="false"
+        android:textColor="#A8DDD2"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:gravity="end|center_vertical"
+        android:padding="4dp" />
+
+</LinearLayout>
