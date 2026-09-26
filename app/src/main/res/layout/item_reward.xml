@@ -39,12 +39,31 @@
             android:textSize="16sp" />
     </LinearLayout>
 
-    <Button
-        android:id="@+id/buyButton"
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@drawable/button_soft_action"
-        android:text="Comprar"
-        android:textAllCaps="false"
-        android:textColor="@color/ink" />
+        android:orientation="vertical"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/buyButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/button_soft_action"
+            android:text="Comprar"
+            android:textAllCaps="false"
+            android:textColor="@color/ink" />
+
+        <Button
+            android:id="@+id/deleteRewardButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/button_soft_action"
+            android:text="🗑 Eliminar"
+            android:textAllCaps="false"
+            android:textColor="@color/ink"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </LinearLayout>
 </LinearLayout>

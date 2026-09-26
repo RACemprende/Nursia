@@ -122,7 +122,7 @@ public class RewardsActivity extends AppCompatActivity {
 
         try {
             for (AppDatabaseHelper.CustomReward customReward : appDatabaseHelper.getCustomRewards()) {
-                rewards.add(new RewardItem(customReward.name, "", customReward.imageUri, customReward.cost, customReward.code, true));
+                rewards.add(new RewardItem(customReward.id, customReward.name, "", customReward.imageUri, customReward.cost, customReward.code, true));
             }
         } catch (IllegalStateException e) {
             Toast.makeText(this, "Error cargando premios personalizados: " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -142,6 +142,7 @@ public class RewardsActivity extends AppCompatActivity {
             TextView rewardName = itemView.findViewById(R.id.rewardName);
             TextView rewardCost = itemView.findViewById(R.id.rewardCost);
             Button buyButton = itemView.findViewById(R.id.buyButton);
+            Button deleteButton = itemView.findViewById(R.id.deleteRewardButton);
 
             rewardName.setText(reward.name);
             rewardCost.setText("Coste: " + reward.cost + " puntos");
@@ -151,8 +152,39 @@ public class RewardsActivity extends AppCompatActivity {
             buyButton.setEnabled(canBuy);
             buyButton.setOnClickListener(v -> buyReward(reward));
 
+            if (reward.customReward) {
+                deleteButton.setVisibility(View.VISIBLE);
+                deleteButton.setOnClickListener(v -> confirmDeleteCustomReward(reward));
+            } else {
+                deleteButton.setVisibility(View.GONE);
+                deleteButton.setOnClickListener(null);
+            }
+
             rewardsContainer.addView(itemView);
         }
+    }
+
+    private void confirmDeleteCustomReward(RewardItem reward) {
+        new AlertDialog.Builder(this)
+                .setTitle("Eliminar premio")
+                .setMessage("¿Seguro que quieres eliminar \"" + reward.name + "\"? Los premios ya canjeados en la mochila no se verán afectados.")
+                .setPositiveButton("Eliminar", (dialog, which) -> {
+                    boolean deleted;
+                    try {
+                        deleted = appDatabaseHelper.deleteCustomReward(reward.id);
+                    } catch (IllegalStateException e) {
+                        Toast.makeText(this, "Error eliminando premio: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    if (deleted) {
+                        Toast.makeText(this, "Premio eliminado", Toast.LENGTH_SHORT).show();
+                        refreshUi();
+                    } else {
+                        Toast.makeText(this, "No se pudo eliminar el premio", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 
     private void buyReward(RewardItem reward) {
@@ -280,6 +312,9 @@ public class RewardsActivity extends AppCompatActivity {
                 "3. Escribe la descripción\n" +
                 "4. Indica el número de puntos necesarios\n" +
                 "5. Pulsa Guardar\n\n" +
+                "Eliminar premios:\n" +
+                "• Solo los premios personalizados que hayas creado pueden eliminarse.\n" +
+                "• Pulsa el botón 🗑 Eliminar en el premio y confirma.\n\n" +
                 "Canjear premios:\n" +
                 "1. Selecciona un premio de la lista\n" +
                 "2. Pulsa Comprar (si tienes puntos suficientes)\n" +
@@ -295,6 +330,7 @@ public class RewardsActivity extends AppCompatActivity {
     }
 
     private static class RewardItem {
+        final int id;
         final String name;
         final String imagePath;
         final String imageUri;
@@ -303,10 +339,11 @@ public class RewardsActivity extends AppCompatActivity {
         final boolean customReward;
 
         RewardItem(String name, String assetPath, String imageUri, int cost, String code) {
-            this(name, assetPath, imageUri, cost, code, false);
+            this(0, name, assetPath, imageUri, cost, code, false);
         }
 
-        RewardItem(String name, String assetPath, String imageUri, int cost, String code, boolean customReward) {
+        RewardItem(int id, String name, String assetPath, String imageUri, int cost, String code, boolean customReward) {
+            this.id = id;
             this.name = name;
             this.imagePath = assetPath;
             this.imageUri = imageUri;

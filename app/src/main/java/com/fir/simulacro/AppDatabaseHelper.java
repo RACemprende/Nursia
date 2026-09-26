@@ -249,6 +249,16 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         return rowId;
     }
 
+    public synchronized boolean deleteCustomReward(int rewardId) {
+        SQLiteDatabase db = getInitializedDatabaseUnchecked();
+        int deleted = db.delete(TABLE_CUSTOM_REWARDS, "id = ?", new String[]{String.valueOf(rewardId)});
+        if (deleted > 0) {
+            touchCloudState(db);
+            return true;
+        }
+        return false;
+    }
+
     public synchronized List<CustomReward> getCustomRewards() {
         SQLiteDatabase db = getInitializedDatabaseUnchecked();
         List<CustomReward> rewards = new ArrayList<>();
