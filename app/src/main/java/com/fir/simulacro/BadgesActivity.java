@@ -139,6 +139,7 @@ public class BadgesActivity extends AppCompatActivity {
         TextView nameView = dialogView.findViewById(R.id.detailName);
         TextView descView = dialogView.findViewById(R.id.detailDesc);
         TextView dateView = dialogView.findViewById(R.id.detailDate);
+        Button shareBtn = dialogView.findViewById(R.id.shareBadgeButton);
         Button closeBtn = dialogView.findViewById(R.id.closeButton);
 
         int resId = getDrawableResId(badge.imagenDrawable);
@@ -156,6 +157,7 @@ public class BadgesActivity extends AppCompatActivity {
                 .setView(dialogView)
                 .setCancelable(true)
                 .create();
+        shareBtn.setOnClickListener(v -> BadgeShareHelper.share(this, badge));
         closeBtn.setOnClickListener(v -> dialog.dismiss());
         dialog.show();
     }

@@ -132,10 +132,19 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private boolean crashSafeMode = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        CrashLogger.install(getApplicationContext());
         setContentView(R.layout.activity_main);
+
+        if (CrashLogger.hasCrash(this)) {
+            crashSafeMode = true;
+            CrashLogger.showIfPresent(this);
+            return;
+        }
 
         // Mostrar onboarding si es primera vez
         if (OnboardingHelper.isOnboardingNeeded(this)) {
@@ -179,6 +188,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (crashSafeMode) return;
         CloudSyncManager.syncSilently(this);
         refreshPointsUi();
         updatePausedQuizUi();
@@ -315,7 +325,7 @@ public class MainActivity extends AppCompatActivity {
         FirQuestion q = selectedQuestions.get(currentIndex);
         currentQuestionStartMs = SystemClock.elapsedRealtime();
         progressText.setText("Pregunta " + (currentIndex + 1) + "/" + selectedQuestions.size());
-        yearText.setText("A\u00f1o: " + q.year);
+        yearText.setText(buildQuestionHeader(q));
         questionText.setText(q.statement);
         questionText.setMaxLines(Integer.MAX_VALUE);
         questionText.setEllipsize(null);
@@ -386,6 +396,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         results.add(new AnswerResult(
+                q.comunidad,
                 q.year,
                 q.questionNumber,
                 q.statement,
@@ -395,6 +406,7 @@ public class MainActivity extends AppCompatActivity {
         ));
 
         questionProgressDbHelper.saveLatestProgress(
+                q.comunidad,
                 q.year,
                 q.questionNumber,
                 status,
@@ -416,6 +428,7 @@ public class MainActivity extends AppCompatActivity {
         highlightAnswerOptions(-1, q.correctIndex, false);
 
         results.add(new AnswerResult(
+                q.comunidad,
                 q.year,
                 q.questionNumber,
                 q.statement,
@@ -425,6 +438,7 @@ public class MainActivity extends AppCompatActivity {
         ));
 
         questionProgressDbHelper.saveLatestProgress(
+                q.comunidad,
                 q.year,
                 q.questionNumber,
                 status,
@@ -516,6 +530,18 @@ public class MainActivity extends AppCompatActivity {
             return "Duda_Segunda";
         }
         return "Duda_Fallada";
+    }
+
+    private String buildQuestionHeader(FirQuestion q) {
+        StringBuilder sb = new StringBuilder();
+        if (q.comunidad != null && !q.comunidad.isEmpty()) {
+            sb.append(q.comunidad).append(" · ");
+        }
+        sb.append("Año ").append(q.year);
+        if (q.questionNumber != null && !q.questionNumber.isEmpty()) {
+            sb.append(" · Nº ").append(q.questionNumber);
+        }
+        return sb.toString();
     }
 
     private String buildFeedbackText(FirQuestion question, String status) {
@@ -620,7 +646,7 @@ public class MainActivity extends AppCompatActivity {
         quizLayout.setVisibility(View.GONE);
         resultLayout.setVisibility(View.VISIBLE);
         scoreText.setText(score + "/" + selectedQuestions.size());
-        netasText.setText(String.format(Locale.getDefault(), "NETAS: %.2f", netas));
+        netasText.setText(String.format(Locale.getDefault(), "NOTA: %.2f", netas));
         finalTimeText.setText("Tiempo: " + formatElapsed(lastElapsedMs));
         earnedPointsText.setText("Has ganado " + score + " puntos. Total: " + totalPoints);
     }
@@ -708,12 +734,12 @@ public class MainActivity extends AppCompatActivity {
     private void saveResultsCsv(Uri uri) {
         try (OutputStream stream = getContentResolver().openOutputStream(uri);
              OutputStreamWriter writer = new OutputStreamWriter(stream)) {
-            writer.write("A\u00f1o,N\u00famero de pregunta,Enunciado,Respuesta marcada,Resultado\n");
+            writer.write("Comunidad,A\u00f1o,N\u00famero de pregunta,Enunciado,Respuesta marcada,Resultado\n");
             for (AnswerResult r : results) {
                 String safeStatement = r.statement.replace("\"", "\"\"");
                 String safeSelected = r.selectedAnswer.replace("\"", "\"\"");
                 String resultText = r.correct ? "acertaste" : "fallaste";
-                writer.write(r.year + "," + r.questionNumber + ",\"" + safeStatement + "\",\"" + safeSelected + "\"," + resultText + "\n");
+                writer.write("\"" + (r.comunidad == null ? "" : r.comunidad.replace("\"", "\"\"")) + "\"," + r.year + "," + r.questionNumber + ",\"" + safeStatement + "\",\"" + safeSelected + "\"," + resultText + "\n");
             }
             writer.flush();
             Toast.makeText(this, "CSV guardado correctamente", Toast.LENGTH_LONG).show();
@@ -748,6 +774,7 @@ public class MainActivity extends AppCompatActivity {
                     : firQuestionsDbHelper.loadQuestionsByStates(statesFilter);
             for (FirQuestionsDbHelper.QuestionRecord question : sourceQuestions) {
                 questions.add(new FirQuestion(
+                        question.comunidad,
                         question.year,
                         question.questionNumber,
                         question.statement,
@@ -842,6 +869,7 @@ public class MainActivity extends AppCompatActivity {
                 for (int i = 0; i < storedResults.length(); i++) {
                     JSONObject resultJson = storedResults.getJSONObject(i);
                     results.add(new AnswerResult(
+                            resultJson.optString("comunidad", ""),
                             resultJson.getString("year"),
                             resultJson.getString("questionNumber"),
                             resultJson.getString("statement"),
@@ -899,6 +927,7 @@ public class MainActivity extends AppCompatActivity {
                 options.add(optionsJson.getString(j));
             }
             questions.add(new FirQuestion(
+                    questionJson.optString("comunidad", ""),
                     questionJson.getString("year"),
                     questionJson.getString("questionNumber"),
                     questionJson.getString("statement"),
@@ -925,6 +954,7 @@ public class MainActivity extends AppCompatActivity {
         JSONArray questionsArray = new JSONArray();
         for (FirQuestion question : selectedQuestions) {
             JSONObject questionJson = new JSONObject();
+            questionJson.put("comunidad", question.comunidad == null ? "" : question.comunidad);
             questionJson.put("year", question.year);
             questionJson.put("questionNumber", question.questionNumber);
             questionJson.put("statement", question.statement);
@@ -942,6 +972,7 @@ public class MainActivity extends AppCompatActivity {
         JSONArray resultsArray = new JSONArray();
         for (AnswerResult result : results) {
             JSONObject resultJson = new JSONObject();
+            resultJson.put("comunidad", result.comunidad == null ? "" : result.comunidad);
             resultJson.put("year", result.year);
             resultJson.put("questionNumber", result.questionNumber);
             resultJson.put("statement", result.statement);
@@ -1012,8 +1043,8 @@ public class MainActivity extends AppCompatActivity {
                 fallos++;
             }
         }
-        // Penalizacion: (fallos/2) * (85/N) donde N = numero de preguntas del simulacro
-        double penalty = (fallos / 2.0) * (85.0 / selectedQuestions.size());
+        // Penalizacion: (fallos/3) * (10/N) donde N = numero de preguntas del simulacro
+        double penalty = (fallos / 3.0) * (10 / selectedQuestions.size());
         return score - penalty;
     }
 
@@ -1089,6 +1120,7 @@ public class MainActivity extends AppCompatActivity {
         TextView nameView = dialogView.findViewById(R.id.badgeName);
         TextView descView = dialogView.findViewById(R.id.badgeDesc);
         Button continueBtn = dialogView.findViewById(R.id.continueButton);
+        Button shareBtn = dialogView.findViewById(R.id.shareBadgeButton);
 
         int resId = 0;
         if (badge.imagenDrawable != null) {
@@ -1102,6 +1134,7 @@ public class MainActivity extends AppCompatActivity {
                 .setView(dialogView)
                 .setCancelable(false)
                 .create();
+        shareBtn.setOnClickListener(v -> BadgeShareHelper.share(this, badge));
         continueBtn.setOnClickListener(v -> {
             dialog.dismiss();
             if (onDismiss != null) onDismiss.run();
@@ -1138,47 +1171,117 @@ public class MainActivity extends AppCompatActivity {
         AppDatabaseHelper.Badge badge = badges.get(index);
         showBadgeUnlockedDialog(badge, () -> showDailyBadgeSequence(badges, index + 1));
     }
-
-
     private void copyQuestionPromptToClipboard() {
-        if (selectedQuestions == null || selectedQuestions.isEmpty() || currentIndex >= selectedQuestions.size()) {
-            Toast.makeText(this, "No hay pregunta activa", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        FirQuestion q = selectedQuestions.get(currentIndex);
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("Soy enfermero/a preparando las oposiciones OPE SESPA.\n");
-        sb.append("Tengo la siguiente pregunta de examen y quiero que me expliques POR QUE la respuesta correcta es la que es, y por que las demas opciones son incorrectas.\n\n");
-        sb.append("PREGUNTA (A\u00f1o ").append(q.year).append("):\n");
-        sb.append(q.statement).append("\n\n");
-        sb.append("OPCIONES:\n");
-        char letter = 'A';
-        for (int i = 0; i < q.options.size(); i++) {
-            sb.append(letter).append(") ").append(q.options.get(i));
-            if (i == q.correctIndex) {
-                sb.append("  <- RESPUESTA CORRECTA");
-            }
-            sb.append("\n");
-            letter++;
-        }
-        sb.append("\nPor favor, explica el razonamiento clinico o teorico que justifica que la opcion correcta sea la ").append((char)('A' + q.correctIndex)).append(", y desmonta brevemente las otras opciones.");
+    if (selectedQuestions == null
+            || selectedQuestions.isEmpty()
+            || currentIndex >= selectedQuestions.size()) {
 
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        ClipData clip = ClipData.newPlainText("Prompt OPE SESPA", sb.toString());
-        if (clipboard != null) {
-            clipboard.setPrimaryClip(clip);
-            Toast.makeText(this, "Prompt copiado al portapapeles", Toast.LENGTH_SHORT).show();
-        }
+        Toast.makeText(this, "No hay pregunta activa", Toast.LENGTH_SHORT).show();
+        return;
     }
+
+    FirQuestion q = selectedQuestions.get(currentIndex);
+
+    StringBuilder sb = new StringBuilder();
+    sb.append("Soy enfermero/a preparando las oposiciones OPE SESPA.\n");
+    sb.append("Tengo la siguiente pregunta de examen y quiero que me expliques POR QUÉ la respuesta correcta es la que es, y por qué las demás opciones son incorrectas.\n\n");
+    sb.append("PREGUNTA (").append(buildQuestionHeader(q)).append("):\n");
+    sb.append(q.statement).append("\n\n");
+
+    sb.append("OPCIONES:\n");
+
+    char letter = 'A';
+    for (int i = 0; i < q.options.size(); i++) {
+        sb.append(letter).append(") ").append(q.options.get(i));
+
+        if (i == q.correctIndex) {
+            sb.append(" <- RESPUESTA CORRECTA");
+        }
+
+        sb.append("\n");
+        letter++;
+    }
+
+    sb.append("\nPor favor, explica el razonamiento clínico o teórico que justifica que la opción correcta sea la ")
+      .append((char)('A' + q.correctIndex))
+      .append(", y desmonta brevemente las otras opciones.");
+
+    String text = sb.toString();
+
+    // Copiar
+    ClipboardManager clipboard =
+            (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+
+    if (clipboard != null) {
+        clipboard.setPrimaryClip(
+                ClipData.newPlainText("Prompt OPE SESPA", text)
+        );
+    }
+
+    // Compartir
+    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+    shareIntent.setType("text/plain");
+    shareIntent.putExtra(Intent.EXTRA_TEXT, text);
+
+    startActivity(
+            Intent.createChooser(shareIntent, "Compartir texto")
+    );
+
+    Toast.makeText(this,
+            "Prompt copiado y listo para compartir",
+            Toast.LENGTH_SHORT).show();
+}
+
+    // private void copyQuestionPromptToClipboard() {
+    //     if (selectedQuestions == null || selectedQuestions.isEmpty() || currentIndex >= selectedQuestions.size()) {
+    //         Toast.makeText(this, "No hay pregunta activa", Toast.LENGTH_SHORT).show();
+    //         return;
+    //     }
+    //     FirQuestion q = selectedQuestions.get(currentIndex);
+
+    //     StringBuilder sb = new StringBuilder();
+    //     sb.append("Soy enfermero/a preparando las oposiciones OPE SESPA.\n");
+    //     sb.append("Tengo la siguiente pregunta de examen y quiero que me expliques POR QUE la respuesta correcta es la que es, y por que las demas opciones son incorrectas.\n\n");
+    //     sb.append("PREGUNTA (").append(buildQuestionHeader(q)).append("):\n");
+    //     sb.append(q.statement).append("\n\n");
+    //     sb.append("OPCIONES:\n");
+    //     char letter = 'A';
+    //     for (int i = 0; i < q.options.size(); i++) {
+    //         sb.append(letter).append(") ").append(q.options.get(i));
+    //         if (i == q.correctIndex) {
+    //             sb.append("  <- RESPUESTA CORRECTA");
+    //         }
+    //         sb.append("\n");
+    //         letter++;
+    //     }
+    //     sb.append("\nPor favor, explica el razonamiento clinico o teorico que justifica que la opcion correcta sea la ").append((char)('A' + q.correctIndex)).append(", y desmonta brevemente las otras opciones.");
+
+    //     ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+    //     ClipData clip = ClipData.newPlainText("Prompt OPE SESPA", sb.toString());
+    //     if (clipboard != null) {
+    //         clipboard.setPrimaryClip(clip);
+    //         Toast.makeText(this, "Prompt copiado al portapapeles", Toast.LENGTH_SHORT).show();
+    //     }
+    // //     // Compartir
+    // //     Intent shareIntent = new Intent(Intent.ACTION_SEND);
+    // //     shareIntent.setType("text/plain");
+    // //     //shareIntent.putExtra(Intent.EXTRA_TEXT, text);
+
+    // //     activity.startActivity(
+    // //             Intent.createChooser(shareIntent, "Compartir texto")
+    // //     );
+    // }
     private static class FirQuestion {
+        final String comunidad;
         final String year;
         final String questionNumber;
         final String statement;
         final List<String> options;
         final int correctIndex;
 
-        FirQuestion(String year, String questionNumber, String statement, List<String> options, int correctIndex) {
+        FirQuestion(String comunidad, String year, String questionNumber, String statement, List<String> options, int correctIndex) {
+            this.comunidad = comunidad;
             this.year = year;
             this.questionNumber = questionNumber;
             this.statement = statement;
@@ -1188,6 +1291,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static class AnswerResult {
+        final String comunidad;
         final String year;
         final String questionNumber;
         final String statement;
@@ -1195,13 +1299,18 @@ public class MainActivity extends AppCompatActivity {
         final boolean correct;
         final String estado;
 
-        AnswerResult(String year, String questionNumber, String statement, String selectedAnswer, boolean correct, String estado) {
+        AnswerResult(String comunidad, String year, String questionNumber, String statement, String selectedAnswer, boolean correct, String estado) {
+            this.comunidad = comunidad;
             this.year = year;
             this.questionNumber = questionNumber;
             this.statement = statement;
             this.selectedAnswer = selectedAnswer;
             this.correct = correct;
             this.estado = estado;
+        }
+
+        AnswerResult(String year, String questionNumber, String statement, String selectedAnswer, boolean correct, String estado) {
+            this("", year, questionNumber, statement, selectedAnswer, correct, estado);
         }
     }
 

@@ -9,7 +9,7 @@ public class QuestionProgressDbHelper {
         this.appDatabaseHelper = new AppDatabaseHelper(context);
     }
 
-    public void saveLatestProgress(String year, String questionNumber, String estado, long duracionMs, long timestampMs) {
-        appDatabaseHelper.saveLatestProgress(year, questionNumber, estado, duracionMs, timestampMs);
+    public void saveLatestProgress(String comunidad, String year, String questionNumber, String estado, long duracionMs, long timestampMs) {
+        appDatabaseHelper.saveLatestProgress(comunidad, year, questionNumber, estado, duracionMs, timestampMs);
     }
 }

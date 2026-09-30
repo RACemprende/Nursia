@@ -25,6 +25,7 @@ public class FirQuestionsDbHelper {
         List<QuestionRecord> questions = new ArrayList<>();
         for (AppDatabaseHelper.QuestionRecord question : sourceQuestions) {
             questions.add(new QuestionRecord(
+                    question.comunidad,
                     question.year,
                     question.questionNumber,
                     question.statement,
@@ -36,13 +37,15 @@ public class FirQuestionsDbHelper {
     }
 
     public static class QuestionRecord {
+        public final String comunidad;
         public final String year;
         public final String questionNumber;
         public final String statement;
         public final List<String> options;
         public final int correctIndex;
 
-        public QuestionRecord(String year, String questionNumber, String statement, List<String> options, int correctIndex) {
+        public QuestionRecord(String comunidad, String year, String questionNumber, String statement, List<String> options, int correctIndex) {
+            this.comunidad = comunidad;
             this.year = year;
             this.questionNumber = questionNumber;
             this.statement = statement;

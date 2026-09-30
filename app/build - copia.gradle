@@ -1,10 +1,7 @@
-plugins {
-    id 'com.android.application'
-}
-
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
 
 buildDir = file(System.getProperty("java.io.tmpdir") + "/FirSimulacroAppBuild/app")
 
@@ -16,23 +13,13 @@ android {
         applicationId "com.fir.simulacro"
         minSdk 24
         targetSdk 34
-        versionCode 3
-        versionName "2.1"
-    }
-
-    signingConfigs {
-        release {
-            storeFile file(keystoreProperties['storeFile'])
-            storePassword keystoreProperties['storePassword']
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-        }
+            versionCode 3
+            versionName "2.1"
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -45,6 +32,23 @@ android {
     lint {
         disable 'UseAppTint'
         baseline = file("lint-baseline.xml")
+    }
+
+
+    signingConfigs {
+        release {
+            storeFile file(keystoreProperties['storeFile'])
+            storePassword keystoreProperties['storePassword']
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
     }
 }
 

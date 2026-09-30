@@ -1860,8 +1860,8 @@
 
     <issue
         id="HardcodedText"
-        message="Hardcoded string &quot;NETAS: 0.00&quot;, should use `@string` resource"
-        errorLine1="                android:text=&quot;NETAS: 0.00&quot;"
+        message="Hardcoded string &quot;NOTA: 0.00&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;NOTA: 0.00&quot;"
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/layout/activity_main.xml"

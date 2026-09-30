@@ -42,10 +42,20 @@
         android:textSize="13sp" />
 
     <Button
-        android:id="@+id/closeButton"
+        android:id="@+id/shareBadgeButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
+        android:background="@drawable/button_soft_action"
+        android:text="📤 Compartir"
+        android:textAllCaps="false"
+        android:textColor="@color/ink" />
+
+    <Button
+        android:id="@+id/closeButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
         android:background="@drawable/button_soft_action"
         android:text="Cerrar"
         android:textAllCaps="false"

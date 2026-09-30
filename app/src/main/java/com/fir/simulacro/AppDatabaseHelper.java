@@ -23,14 +23,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
 public class AppDatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "fir_examenes.sqlite";
-    private static final int DATABASE_VERSION = 6;
-    private static final String QUESTIONS_CSV_ASSET = "sespa_enfermeria_questions.csv";
-    private static final String QUESTIONS_DATASET_VERSION = "sespa_enfermeria_2019_2025_v2";
+    private static final int DATABASE_VERSION = 7;
+    private static final String QUESTIONS_CSV_ASSET = "enfermeria_examenes_combinado.csv";
+    private static final String QUESTIONS_DATASET_VERSION = "enfermeria_combinado_v1";
     private static final String QUESTIONS_VIEW = "questions_full";
 
     private static final String LEGACY_PROGRESS_DB_NAME = "fir_user_data.db";
@@ -74,6 +75,13 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        if (oldVersion < 7) {
+            db.execSQL("DROP VIEW IF EXISTS " + QUESTIONS_VIEW);
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_QUESTIONS);
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_QUESTION_PROGRESS);
+            db.execSQL("DELETE FROM " + TABLE_APP_STATE + " WHERE key = ?",
+                    new Object[]{STATE_QUESTIONS_DATASET_VERSION});
+        }
         ensureAppTables(db);
     }
 
@@ -99,21 +107,21 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         String[] args;
 
         if (states == null || states.isEmpty()) {
-            sql = "SELECT exam_year, question_number, question_text, option_1, option_2, option_3, option_4, option_5, correct_option_number " +
+            sql = "SELECT comunidad, exam_year, question_number, question_text, option_1, option_2, option_3, option_4, correct_option_number " +
                     "FROM " + QUESTIONS_VIEW + " WHERE correct_option_number BETWEEN ? AND ? " +
-                    "ORDER BY exam_year, question_number";
-            args = new String[]{"1", "5"};
+                    "ORDER BY comunidad, exam_year, question_number";
+            args = new String[]{"1", "4"};
         } else {
             String placeholders = TextUtils.join(",", java.util.Collections.nCopies(states.size(), "?"));
-            sql = "SELECT q.exam_year, q.question_number, q.question_text, q.option_1, q.option_2, q.option_3, q.option_4, q.option_5, q.correct_option_number " +
+            sql = "SELECT q.comunidad, q.exam_year, q.question_number, q.question_text, q.option_1, q.option_2, q.option_3, q.option_4, q.correct_option_number " +
                     "FROM " + QUESTIONS_VIEW + " q " +
                     "JOIN " + TABLE_QUESTION_PROGRESS + " p " +
-                    "ON p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT) " +
+                    "ON p.comunidad = q.comunidad AND p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT) " +
                     "WHERE q.correct_option_number BETWEEN ? AND ? AND p.estado IN (" + placeholders + ") " +
-                    "ORDER BY q.exam_year, q.question_number";
+                    "ORDER BY q.comunidad, q.exam_year, q.question_number";
             args = new String[states.size() + 2];
             args[0] = "1";
-            args[1] = "5";
+            args[1] = "4";
             for (int i = 0; i < states.size(); i++) {
                 args[i + 2] = states.get(i);
             }
@@ -121,15 +129,15 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
 
         try (Cursor cursor = db.rawQuery(sql, args)) {
             while (cursor.moveToNext()) {
-                String statement = trimToNull(cursor.getString(2));
-                String option1 = trimToNull(cursor.getString(3));
-                String option2 = trimToNull(cursor.getString(4));
-                String option3 = trimToNull(cursor.getString(5));
-                String option4 = trimToNull(cursor.getString(6));
-                String option5 = trimToNull(cursor.getString(7));
+                String comunidad = trimToNull(cursor.getString(0));
+                String statement = trimToNull(cursor.getString(3));
+                String option1 = trimToNull(cursor.getString(4));
+                String option2 = trimToNull(cursor.getString(5));
+                String option3 = trimToNull(cursor.getString(6));
+                String option4 = trimToNull(cursor.getString(7));
                 int correctOptionNumber = cursor.getInt(8);
 
-                if (statement == null || option1 == null || option2 == null || option3 == null || option4 == null) {
+                if (comunidad == null || statement == null || option1 == null || option2 == null || option3 == null || option4 == null) {
                     continue;
                 }
 
@@ -138,17 +146,15 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 options.add(option2);
                 options.add(option3);
                 options.add(option4);
-                if (option5 != null) {
-                    options.add(option5);
-                }
 
                 if (correctOptionNumber < 1 || correctOptionNumber > options.size()) {
                     continue;
                 }
 
                 questions.add(new QuestionRecord(
-                        String.valueOf(cursor.getInt(0)),
+                        comunidad,
                         String.valueOf(cursor.getInt(1)),
+                        String.valueOf(cursor.getInt(2)),
                         statement,
                         options,
                         correctOptionNumber - 1
@@ -159,9 +165,10 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         return questions;
     }
 
-    public synchronized void saveLatestProgress(String year, String questionNumber, String estado, long duracionMs, long timestampMs) {
+    public synchronized void saveLatestProgress(String comunidad, String year, String questionNumber, String estado, long duracionMs, long timestampMs) {
         SQLiteDatabase db = getInitializedDatabaseUnchecked();
         ContentValues values = new ContentValues();
+        values.put("comunidad", comunidad == null ? "" : comunidad);
         values.put("year", year);
         values.put("question_number", questionNumber);
         values.put("estado", estado);
@@ -453,7 +460,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                         "SUM(CASE WHEN p.estado = 'Duda_Segunda' THEN 1 ELSE 0 END) AS doubt_second, " +
                         "AVG(CASE WHEN p.duracion_ms > 0 THEN p.duracion_ms END) AS avg_duration_ms " +
                         "FROM " + TABLE_QUESTION_PROGRESS + " p " +
-                        "JOIN " + QUESTIONS_VIEW + " q ON p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT)" +
+                        "JOIN " + QUESTIONS_VIEW + " q ON p.comunidad = q.comunidad AND p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT)" +
                         filter.whereClause,
                 filter.args
         )) {
@@ -471,7 +478,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         try (Cursor cursor = db.rawQuery(
                 "SELECT date(p.timestamp_ms / 1000, 'unixepoch', 'localtime') AS day_value, COUNT(*) AS total_day " +
                         "FROM " + TABLE_QUESTION_PROGRESS + " p " +
-                        "JOIN " + QUESTIONS_VIEW + " q ON p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT)" +
+                        "JOIN " + QUESTIONS_VIEW + " q ON p.comunidad = q.comunidad AND p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT)" +
                         filter.whereClause +
                         " GROUP BY day_value ORDER BY day_value ASC",
                 filter.args
@@ -535,7 +542,6 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         migrateLegacyQuestionProgress(db);
         migrateLegacyPoints(db);
         migrateProgressStatesToV2(db);
-        seedPendingQuestionProgress(db);
     }
 
     private void ensureQuestionDataset(SQLiteDatabase db) throws IOException {
@@ -552,8 +558,11 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
             db.execSQL("DROP VIEW IF EXISTS " + QUESTIONS_VIEW);
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_QUESTIONS);
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_EXAMS);
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_QUESTION_PROGRESS);
             ensureQuestionSchema(db);
+            ensureAppTables(db);
             importQuestionsFromCsv(db);
+            createQuestionIndexes(db);
             recreateQuestionsView(db);
             resetQuestionBoundProgress(db);
             seedPendingQuestionProgress(db);
@@ -573,6 +582,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         );
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS " + TABLE_QUESTIONS + " (" +
+                        "comunidad TEXT NOT NULL, " +
                         "exam_year INTEGER NOT NULL, " +
                         "question_number INTEGER NOT NULL, " +
                         "question_text TEXT NOT NULL, " +
@@ -580,18 +590,23 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                         "option_2 TEXT NOT NULL, " +
                         "option_3 TEXT NOT NULL, " +
                         "option_4 TEXT NOT NULL, " +
-                        "option_5 TEXT, " +
                         "correct_option_number INTEGER NOT NULL, " +
                         "correct_option_text TEXT, " +
                         "subject_name TEXT, " +
-                        "section_name TEXT, " +
-                        "PRIMARY KEY (exam_year, question_number), " +
+                        "PRIMARY KEY (comunidad, exam_year, question_number), " +
                         "FOREIGN KEY (exam_year) REFERENCES " + TABLE_EXAMS + "(exam_year)" +
                         ")"
         );
+    }
+
+    private void createQuestionIndexes(SQLiteDatabase db) {
         db.execSQL(
                 "CREATE INDEX IF NOT EXISTS idx_questions_subject ON " +
                         TABLE_QUESTIONS + "(subject_name)"
+        );
+        db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_questions_comunidad ON " +
+                        TABLE_QUESTIONS + "(comunidad)"
         );
     }
 
@@ -599,9 +614,9 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP VIEW IF EXISTS " + QUESTIONS_VIEW);
         db.execSQL(
                 "CREATE VIEW " + QUESTIONS_VIEW + " AS " +
-                        "SELECT q.exam_year, q.question_number, q.question_text, " +
-                        "q.option_1, q.option_2, q.option_3, q.option_4, q.option_5, " +
-                        "q.correct_option_number, q.correct_option_text, q.subject_name, q.section_name " +
+                        "SELECT q.comunidad, q.exam_year, q.question_number, q.question_text, " +
+                        "q.option_1, q.option_2, q.option_3, q.option_4, " +
+                        "q.correct_option_number, q.correct_option_text, q.subject_name " +
                         "FROM " + TABLE_QUESTIONS + " q"
         );
     }
@@ -631,26 +646,43 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 }
 
                 List<String> fields = CsvUtils.parseCsvLine(line);
-                if (fields.size() < 12) {
-                    throw new IOException("Fila CSV invalida al importar preguntas de enfermeria.");
+                if (fields.size() < 11) {
+                    // Fila malformada (comillas o comas raras). Se ignora.
+                    continue;
                 }
 
-                int examYear = parseRequiredInt(fields.get(0), "exam_year");
-                int questionNumber = parseRequiredInt(fields.get(1), "question_number");
-                String questionText = requireText(fields.get(2), "question_text");
-                String option1 = requireText(fields.get(3), "option_1");
-                String option2 = requireText(fields.get(4), "option_2");
-                String option3 = requireText(fields.get(5), "option_3");
-                String option4 = requireText(fields.get(6), "option_4");
-                String option5 = trimToNull(fields.get(7));
-                int correctOptionNumber = parseRequiredInt(fields.get(8), "correct_option_number");
-                String correctOptionText = trimToNull(fields.get(9));
-                String subjectName = trimToNull(fields.get(10));
-                String sectionName = trimToNull(fields.get(11));
+                String comunidad;
+                int examYear;
+                int questionNumber;
+                String questionText;
+                String option1;
+                String option2;
+                String option3;
+                String option4;
+                String correctLetter;
+                String correctOptionText;
+                String subjectName;
+                try {
+                    comunidad = requireText(fields.get(0), "comunidad");
+                    examYear = parseRequiredInt(fields.get(1), "year");
+                    questionNumber = parseRequiredInt(fields.get(2), "numero");
+                    questionText = requireText(fields.get(3), "pregunta");
+                    option1 = requireText(fields.get(4), "opcion1");
+                    option2 = requireText(fields.get(5), "opcion2");
+                    option3 = requireText(fields.get(6), "opcion3");
+                    option4 = requireText(fields.get(7), "opcion4");
+                    correctLetter = requireText(fields.get(8), "respuesta_correcta_letra");
+                    correctOptionText = trimToNull(fields.get(9));
+                    subjectName = trimToNull(fields.get(10));
+                } catch (IOException | RuntimeException e) {
+                    // Fila con datos inválidos (año o número no numéricos, campos vacíos): se ignora.
+                    continue;
+                }
 
-                int optionCount = option5 == null ? 4 : 5;
-                if (correctOptionNumber < 1 || correctOptionNumber > optionCount) {
-                    throw new IOException("Respuesta correcta fuera de rango en la pregunta " + examYear + "-" + questionNumber);
+                int correctOptionNumber = letterToOptionNumber(correctLetter);
+                if (correctOptionNumber < 1 || correctOptionNumber > 4) {
+                    // Preguntas ANULADAS u otras sin respuesta válida: se ignoran.
+                    continue;
                 }
 
                 ContentValues examValues = new ContentValues();
@@ -659,6 +691,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 db.insertWithOnConflict(TABLE_EXAMS, null, examValues, SQLiteDatabase.CONFLICT_IGNORE);
 
                 ContentValues questionValues = new ContentValues();
+                questionValues.put("comunidad", comunidad);
                 questionValues.put("exam_year", examYear);
                 questionValues.put("question_number", questionNumber);
                 questionValues.put("question_text", questionText);
@@ -666,14 +699,32 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 questionValues.put("option_2", option2);
                 questionValues.put("option_3", option3);
                 questionValues.put("option_4", option4);
-                questionValues.put("option_5", option5);
                 questionValues.put("correct_option_number", correctOptionNumber);
                 questionValues.put("correct_option_text", correctOptionText);
                 questionValues.put("subject_name", subjectName);
-                questionValues.put("section_name", sectionName);
-                db.insertOrThrow(TABLE_QUESTIONS, null, questionValues);
+                try {
+                    db.insertOrThrow(TABLE_QUESTIONS, null, questionValues);
+                } catch (RuntimeException e) {
+                    // Fila duplicada (misma comunidad/año/número) u otra violación: se ignora.
+                }
             }
         }
+    }
+
+    private static int letterToOptionNumber(String letter) {
+        if (letter == null) return -1;
+        String normalized = letter.trim().toUpperCase(Locale.ROOT);
+        if (normalized.length() == 1) {
+            char c = normalized.charAt(0);
+            if (c >= 'A' && c <= 'D') {
+                return (c - 'A') + 1;
+            }
+        }
+        try {
+            int n = Integer.parseInt(normalized);
+            if (n >= 1 && n <= 4) return n;
+        } catch (NumberFormatException ignored) {}
+        return -1;
     }
 
     private void resetQuestionBoundProgress(SQLiteDatabase db) {
@@ -770,20 +821,21 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
 
     private void seedPendingQuestionProgress(SQLiteDatabase db) {
         db.execSQL(
-                "INSERT OR IGNORE INTO " + TABLE_QUESTION_PROGRESS + " (year, question_number, estado, duracion_ms, timestamp_ms) " +
-                        "SELECT CAST(exam_year AS TEXT), CAST(question_number AS TEXT), 'Pendiente', 0, 0 FROM " + TABLE_QUESTIONS
+                "INSERT OR IGNORE INTO " + TABLE_QUESTION_PROGRESS + " (comunidad, year, question_number, estado, duracion_ms, timestamp_ms) " +
+                        "SELECT comunidad, CAST(exam_year AS TEXT), CAST(question_number AS TEXT), 'Pendiente', 0, 0 FROM " + TABLE_QUESTIONS
         );
     }
 
     private void ensureAppTables(SQLiteDatabase db) {
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS " + TABLE_QUESTION_PROGRESS + " (" +
+                        "comunidad TEXT NOT NULL DEFAULT '', " +
                         "year TEXT NOT NULL, " +
                         "question_number TEXT NOT NULL, " +
                         "estado TEXT NOT NULL, " +
                         "duracion_ms INTEGER NOT NULL, " +
                         "timestamp_ms INTEGER NOT NULL, " +
-                        "PRIMARY KEY (year, question_number)" +
+                        "PRIMARY KEY (comunidad, year, question_number)" +
                         ")"
         );
         db.execSQL(
@@ -1069,9 +1121,10 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
             snapshot.put("settings", UserSettings.exportSnapshot(context));
 
             JSONArray progressArray = new JSONArray();
-            try (Cursor cursor = db.query(TABLE_QUESTION_PROGRESS, null, null, null, null, null, "year ASC, question_number ASC")) {
+            try (Cursor cursor = db.query(TABLE_QUESTION_PROGRESS, null, null, null, null, null, "comunidad ASC, year ASC, question_number ASC")) {
                 while (cursor.moveToNext()) {
                     JSONObject row = new JSONObject();
+                    row.put("comunidad", cursor.getString(cursor.getColumnIndexOrThrow("comunidad")));
                     row.put("year", cursor.getString(cursor.getColumnIndexOrThrow("year")));
                     row.put("questionNumber", cursor.getString(cursor.getColumnIndexOrThrow("question_number")));
                     row.put("estado", cursor.getString(cursor.getColumnIndexOrThrow("estado")));
@@ -1175,6 +1228,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                     for (int i = 0; i < progressArray.length(); i++) {
                         JSONObject row = progressArray.getJSONObject(i);
                         ContentValues values = new ContentValues();
+                        values.put("comunidad", row.optString("comunidad", ""));
                         values.put("year", row.getString("year"));
                         values.put("question_number", row.getString("questionNumber"));
                         values.put("estado", row.getString("estado"));
@@ -1371,7 +1425,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
             try (Cursor c = db.rawQuery(
                     "SELECT " + groupExpr + " AS lbl, COUNT(*) AS total " +
                     "FROM " + TABLE_QUESTION_PROGRESS + " p " +
-                    "JOIN " + QUESTIONS_VIEW + " q ON p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT)" +
+                    "JOIN " + QUESTIONS_VIEW + " q ON p.comunidad = q.comunidad AND p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT)" +
                     filter.whereClause +
                     " GROUP BY lbl ORDER BY lbl ASC",
                     filter.args
@@ -1750,13 +1804,15 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
     }
 
     public static class QuestionRecord {
+        public final String comunidad;
         public final String year;
         public final String questionNumber;
         public final String statement;
         public final List<String> options;
         public final int correctIndex;
 
-        public QuestionRecord(String year, String questionNumber, String statement, List<String> options, int correctIndex) {
+        public QuestionRecord(String comunidad, String year, String questionNumber, String statement, List<String> options, int correctIndex) {
+            this.comunidad = comunidad;
             this.year = year;
             this.questionNumber = questionNumber;
             this.statement = statement;
