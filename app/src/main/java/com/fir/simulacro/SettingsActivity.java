@@ -16,8 +16,13 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class SettingsActivity extends AppCompatActivity {
     private int[] questionCountOptions;
@@ -31,16 +36,20 @@ public class SettingsActivity extends AppCompatActivity {
     private Button openPermissionSettingsButton;
     private Button testNotificationButton;
     private Button onboardingButton;
+    private Button selectTheoryCommunitiesButton;
+    private Button selectLegislationCommunitiesButton;
     private Button saveButton;
     private Button cancelButton;
+    private AppDatabaseHelper appDatabaseHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
-        
+
         startBackgroundAnimation();
 
+        appDatabaseHelper = new AppDatabaseHelper(this);
         bindViews();
         setupControls();
         setupListeners();
@@ -63,6 +72,8 @@ public class SettingsActivity extends AppCompatActivity {
         openPermissionSettingsButton = findViewById(R.id.openPermissionSettingsButton);
         testNotificationButton = findViewById(R.id.testNotificationButton);
         onboardingButton = findViewById(R.id.onboardingButton);
+        selectTheoryCommunitiesButton = findViewById(R.id.selectTheoryCommunitiesButton);
+        selectLegislationCommunitiesButton = findViewById(R.id.selectLegislationCommunitiesButton);
         saveButton = findViewById(R.id.saveSettingsButton);
         cancelButton = findViewById(R.id.cancelSettingsButton);
     }
@@ -106,12 +117,16 @@ public class SettingsActivity extends AppCompatActivity {
         thresholdSlider.setMax(100);
         thresholdSlider.setProgress(thresholdPercent);
         thresholdValueText.setText(thresholdPercent + "%");
+
+        refreshCommunityButtons();
     }
 
     private void setupListeners() {
         openPermissionSettingsButton.setOnClickListener(v -> openRelevantPermissionSettings());
         testNotificationButton.setOnClickListener(v -> testNotificationNow());
         onboardingButton.setOnClickListener(v -> showOnboardingAgain());
+        selectTheoryCommunitiesButton.setOnClickListener(v -> showCommunityPicker(false));
+        selectLegislationCommunitiesButton.setOnClickListener(v -> showCommunityPicker(true));
         thresholdSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -183,6 +198,83 @@ public class SettingsActivity extends AppCompatActivity {
         OnboardingHelper.resetOnboarding(this);
         startActivity(new Intent(this, OnboardingActivity.class));
         finish();
+    }
+
+    private void showCommunityPicker(boolean forLegislation) {
+        final List<String> allCommunities = appDatabaseHelper.getAvailableCommunitiesForCategory(forLegislation);
+        if (allCommunities.isEmpty()) {
+            Toast.makeText(this, "No hay comunidades disponibles para esta categoría.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Set<String> currentSelection = forLegislation
+                ? UserSettings.getLegislationCommunitiesFilter(this)
+                : UserSettings.getTheoryCommunitiesFilter(this);
+
+        final boolean[] checked = new boolean[allCommunities.size()];
+        for (int i = 0; i < allCommunities.size(); i++) {
+            checked[i] = currentSelection == null || currentSelection.contains(allCommunities.get(i));
+        }
+
+        String title = forLegislation
+                ? "Comunidades (Legislación)"
+                : "Comunidades (Teoría)";
+
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMultiChoiceItems(
+                        allCommunities.toArray(new String[0]),
+                        checked,
+                        (dialog, which, isChecked) -> checked[which] = isChecked
+                )
+                .setPositiveButton("Guardar", (dialog, which) -> {
+                    Set<String> selected = new HashSet<>();
+                    for (int i = 0; i < allCommunities.size(); i++) {
+                        if (checked[i]) {
+                            selected.add(allCommunities.get(i));
+                        }
+                    }
+                    if (forLegislation) {
+                        UserSettings.saveLegislationCommunities(this, selected);
+                    } else {
+                        UserSettings.saveTheoryCommunities(this, selected);
+                    }
+                    refreshCommunityButtons();
+                })
+                .setNeutralButton("Todas", (dialog, which) -> {
+                    Set<String> all = new HashSet<>(allCommunities);
+                    if (forLegislation) {
+                        UserSettings.saveLegislationCommunities(this, all);
+                    } else {
+                        UserSettings.saveTheoryCommunities(this, all);
+                    }
+                    refreshCommunityButtons();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private void refreshCommunityButtons() {
+        selectTheoryCommunitiesButton.setText(buildCommunityButtonLabel(false));
+        selectLegislationCommunitiesButton.setText(buildCommunityButtonLabel(true));
+    }
+
+    private String buildCommunityButtonLabel(boolean forLegislation) {
+        String prefix = forLegislation ? "Legislación: " : "Teoría: ";
+        List<String> available = appDatabaseHelper.getAvailableCommunitiesForCategory(forLegislation);
+        Set<String> selected = forLegislation
+                ? UserSettings.getLegislationCommunitiesFilter(this)
+                : UserSettings.getTheoryCommunitiesFilter(this);
+        if (selected == null) {
+            return prefix + "Todas";
+        }
+        if (selected.isEmpty()) {
+            return prefix + "Ninguna";
+        }
+        if (!available.isEmpty() && selected.containsAll(available)) {
+            return prefix + "Todas";
+        }
+        return prefix + selected.size() + "/" + available.size();
     }
 
     private void saveSettings() {

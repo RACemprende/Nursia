@@ -22,9 +22,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class AppDatabaseHelper extends SQLiteOpenHelper {
@@ -59,6 +61,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
     private static final String STATE_CLOUD_LAST_MODIFIED = "cloud_last_modified_ms";
 
     private static final int[] STREAK_THRESHOLDS = {3, 5, 10, 20, 25, 50, 100};
+    private static final String LEGISLATION_SUBJECT = "Legislación";
 
     private final Context context;
     private boolean initialized;
@@ -103,31 +106,43 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
 
     private List<QuestionRecord> queryQuestions(SQLiteDatabase db, List<String> states) {
         List<QuestionRecord> questions = new ArrayList<>();
-        String sql;
-        String[] args;
+        Set<String> theoryCommunities = UserSettings.getTheoryCommunitiesFilter(context);
+        Set<String> legislationCommunities = UserSettings.getLegislationCommunitiesFilter(context);
 
-        if (states == null || states.isEmpty()) {
-            sql = "SELECT comunidad, exam_year, question_number, question_text, option_1, option_2, option_3, option_4, correct_option_number " +
-                    "FROM " + QUESTIONS_VIEW + " WHERE correct_option_number BETWEEN ? AND ? " +
-                    "ORDER BY comunidad, exam_year, question_number";
-            args = new String[]{"1", "4"};
+        boolean withStates = states != null && !states.isEmpty();
+        String alias = withStates ? "q." : "";
+
+        StringBuilder sql = new StringBuilder();
+        List<String> argsList = new ArrayList<>();
+
+        sql.append("SELECT ").append(alias).append("comunidad, ")
+                .append(alias).append("exam_year, ")
+                .append(alias).append("question_number, ")
+                .append(alias).append("question_text, ")
+                .append(alias).append("option_1, ")
+                .append(alias).append("option_2, ")
+                .append(alias).append("option_3, ")
+                .append(alias).append("option_4, ")
+                .append(alias).append("correct_option_number ")
+                .append("FROM ").append(QUESTIONS_VIEW);
+        if (withStates) {
+            sql.append(" q JOIN ").append(TABLE_QUESTION_PROGRESS).append(" p ")
+                    .append("ON p.comunidad = q.comunidad AND p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT) ");
         } else {
-            String placeholders = TextUtils.join(",", java.util.Collections.nCopies(states.size(), "?"));
-            sql = "SELECT q.comunidad, q.exam_year, q.question_number, q.question_text, q.option_1, q.option_2, q.option_3, q.option_4, q.correct_option_number " +
-                    "FROM " + QUESTIONS_VIEW + " q " +
-                    "JOIN " + TABLE_QUESTION_PROGRESS + " p " +
-                    "ON p.comunidad = q.comunidad AND p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT) " +
-                    "WHERE q.correct_option_number BETWEEN ? AND ? AND p.estado IN (" + placeholders + ") " +
-                    "ORDER BY q.comunidad, q.exam_year, q.question_number";
-            args = new String[states.size() + 2];
-            args[0] = "1";
-            args[1] = "4";
-            for (int i = 0; i < states.size(); i++) {
-                args[i + 2] = states.get(i);
-            }
+            sql.append(" ");
         }
+        sql.append("WHERE ").append(alias).append("correct_option_number BETWEEN 1 AND 4");
+        if (withStates) {
+            String placeholders = TextUtils.join(",", Collections.nCopies(states.size(), "?"));
+            sql.append(" AND p.estado IN (").append(placeholders).append(")");
+            argsList.addAll(states);
+        }
+        appendCommunityFilter(sql, argsList, alias, theoryCommunities, legislationCommunities);
+        sql.append(" ORDER BY ").append(alias).append("comunidad, ")
+                .append(alias).append("exam_year, ")
+                .append(alias).append("question_number");
 
-        try (Cursor cursor = db.rawQuery(sql, args)) {
+        try (Cursor cursor = db.rawQuery(sql.toString(), argsList.toArray(new String[0]))) {
             while (cursor.moveToNext()) {
                 String comunidad = trimToNull(cursor.getString(0));
                 String statement = trimToNull(cursor.getString(3));
@@ -163,6 +178,73 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         }
 
         return questions;
+    }
+
+    private void appendCommunityFilter(StringBuilder sql, List<String> args, String tableAlias,
+                                        Set<String> theoryCommunities, Set<String> legislationCommunities) {
+        if (theoryCommunities == null && legislationCommunities == null) {
+            return;
+        }
+
+        sql.append(" AND ((TRIM(").append(tableAlias).append("subject_name) = ?");
+        args.add(LEGISLATION_SUBJECT);
+        sql.append(" AND ");
+        appendCommunityClause(sql, args, tableAlias, legislationCommunities);
+        sql.append(") OR ((TRIM(").append(tableAlias).append("subject_name) IS NULL OR TRIM(")
+                .append(tableAlias).append("subject_name) != ?)");
+        args.add(LEGISLATION_SUBJECT);
+        sql.append(" AND ");
+        appendCommunityClause(sql, args, tableAlias, theoryCommunities);
+        sql.append("))");
+    }
+
+    private void appendCommunityClause(StringBuilder sql, List<String> args, String tableAlias, Set<String> filter) {
+        if (filter == null) {
+            sql.append("1=1");
+            return;
+        }
+        if (filter.isEmpty()) {
+            sql.append("0=1");
+            return;
+        }
+        sql.append(tableAlias).append("comunidad IN (");
+        boolean first = true;
+        for (String value : filter) {
+            if (!first) {
+                sql.append(",");
+            }
+            sql.append("?");
+            args.add(value);
+            first = false;
+        }
+        sql.append(")");
+    }
+
+    public synchronized List<String> getAvailableCommunitiesForCategory(boolean forLegislation) {
+        SQLiteDatabase db = getInitializedDatabaseUnchecked();
+        List<String> communities = new ArrayList<>();
+        String sql;
+        String[] args;
+        if (forLegislation) {
+            sql = "SELECT DISTINCT comunidad FROM " + QUESTIONS_VIEW +
+                    " WHERE TRIM(subject_name) = ? AND TRIM(COALESCE(comunidad, '')) != '' " +
+                    " ORDER BY comunidad";
+            args = new String[]{LEGISLATION_SUBJECT};
+        } else {
+            sql = "SELECT DISTINCT comunidad FROM " + QUESTIONS_VIEW +
+                    " WHERE (TRIM(subject_name) IS NULL OR TRIM(subject_name) != ?) AND TRIM(COALESCE(comunidad, '')) != '' " +
+                    " ORDER BY comunidad";
+            args = new String[]{LEGISLATION_SUBJECT};
+        }
+        try (Cursor cursor = db.rawQuery(sql, args)) {
+            while (cursor.moveToNext()) {
+                String value = trimToNull(cursor.getString(0));
+                if (value != null) {
+                    communities.add(value);
+                }
+            }
+        }
+        return communities;
     }
 
     public synchronized void saveLatestProgress(String comunidad, String year, String questionNumber, String estado, long duracionMs, long timestampMs) {
