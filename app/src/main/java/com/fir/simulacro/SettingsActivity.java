@@ -36,6 +36,7 @@ public class SettingsActivity extends AppCompatActivity {
     private Button openPermissionSettingsButton;
     private Button testNotificationButton;
     private Button onboardingButton;
+    private Button aboutButton;
     private Button selectTheoryCommunitiesButton;
     private Button selectLegislationCommunitiesButton;
     private Button saveButton;
@@ -72,6 +73,7 @@ public class SettingsActivity extends AppCompatActivity {
         openPermissionSettingsButton = findViewById(R.id.openPermissionSettingsButton);
         testNotificationButton = findViewById(R.id.testNotificationButton);
         onboardingButton = findViewById(R.id.onboardingButton);
+        aboutButton = findViewById(R.id.aboutButton);
         selectTheoryCommunitiesButton = findViewById(R.id.selectTheoryCommunitiesButton);
         selectLegislationCommunitiesButton = findViewById(R.id.selectLegislationCommunitiesButton);
         saveButton = findViewById(R.id.saveSettingsButton);
@@ -125,6 +127,7 @@ public class SettingsActivity extends AppCompatActivity {
         openPermissionSettingsButton.setOnClickListener(v -> openRelevantPermissionSettings());
         testNotificationButton.setOnClickListener(v -> testNotificationNow());
         onboardingButton.setOnClickListener(v -> showOnboardingAgain());
+        aboutButton.setOnClickListener(v -> openAbout());
         selectTheoryCommunitiesButton.setOnClickListener(v -> showCommunityPicker(false));
         selectLegislationCommunitiesButton.setOnClickListener(v -> showCommunityPicker(true));
         thresholdSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -198,6 +201,16 @@ public class SettingsActivity extends AppCompatActivity {
         OnboardingHelper.resetOnboarding(this);
         startActivity(new Intent(this, OnboardingActivity.class));
         finish();
+    }
+
+    private void openAbout() {
+        Uri uri = Uri.parse("https://racemprende.github.io/opostests_nursia_privacy/");
+        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        try {
+            startActivity(intent);
+        } catch (android.content.ActivityNotFoundException e) {
+            Toast.makeText(this, "No se encontró un navegador para abrir el enlace", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void showCommunityPicker(boolean forLegislation) {

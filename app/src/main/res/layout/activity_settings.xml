@@ -173,6 +173,16 @@
                 android:textColor="@color/ink" />
 
             <Button
+                android:id="@+id/aboutButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/button_soft_action"
+                android:text="Acerca de"
+                android:textAllCaps="false"
+                android:textColor="@color/ink" />
+
+            <Button
                 android:id="@+id/saveSettingsButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
