@@ -481,9 +481,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                         : null;
             }
 
-            setAppState(db, STATE_POSITIVE_STREAK, "0");
-            setAppState(db, STATE_NEGATIVE_STREAK, "0");
-            touchCloudState(db);
+            // Las preguntas en blanco no suman ni cortan la racha.
             db.setTransactionSuccessful();
             return null;
         } finally {
@@ -1612,6 +1610,28 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
             android.util.Log.e("AppDB", "Error in getDailyAccuracyTrend", e);
         }
         return entries;
+    }
+
+    /** Devuelve {preguntas hechas, preguntas totales} respetando los filtros de comunidades. */
+    public synchronized int[] getQuestionProgressCounts() {
+        SQLiteDatabase db = getInitializedDatabaseUnchecked();
+        StringBuilder sql = new StringBuilder();
+        List<String> args = new ArrayList<>();
+        sql.append("SELECT COUNT(*), ")
+                .append("COALESCE(SUM(CASE WHEN p.estado IS NOT NULL AND p.estado != 'Pendiente' THEN 1 ELSE 0 END), 0) ")
+                .append("FROM ").append(QUESTIONS_VIEW).append(" q LEFT JOIN ").append(TABLE_QUESTION_PROGRESS).append(" p ")
+                .append("ON p.comunidad = q.comunidad AND p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT) ")
+                .append("WHERE q.correct_option_number BETWEEN 1 AND 4");
+        appendCommunityFilter(sql, args,
+                "q.",
+                UserSettings.getTheoryCommunitiesFilter(context),
+                UserSettings.getLegislationCommunitiesFilter(context));
+        try (Cursor c = db.rawQuery(sql.toString(), args.toArray(new String[0]))) {
+            if (c.moveToFirst()) {
+                return new int[]{c.getInt(1), c.getInt(0)};
+            }
+        }
+        return new int[]{0, 0};
     }
 
     public synchronized List<DailyCalendarStats> getDailyCalendarStats(String monthKey) {

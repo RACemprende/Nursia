@@ -76,5 +76,21 @@
             android:layout_marginTop="8dp"
             android:text="Aciertos: 0 · Falladas: 0 · En blanco: 0"
             android:textStyle="bold" />
+
+        <com.fir.simulacro.ProgressRingView
+            android:id="@+id/progressRing"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="24dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="Preguntas hechas del total (según tus filtros de comunidades)"
+            android:textColor="@color/muted"
+            android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>

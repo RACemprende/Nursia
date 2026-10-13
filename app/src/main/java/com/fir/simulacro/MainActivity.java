@@ -1044,9 +1044,8 @@ public class MainActivity extends AppCompatActivity {
                 fallos++;
             }
         }
-        // Penalizacion: (fallos/3) * (10/N) donde N = numero de preguntas del simulacro
-        double penalty = (fallos / 3.0) * (10 / selectedQuestions.size());
-        return score - penalty;
+        // Nota sobre 10: (aciertos - fallos/3) * 10 / N, donde N = numero de preguntas del simulacro
+        return (score - (double) fallos / WRONG_ANSWERS_PER_PENALTY) * 10.0 / selectedQuestions.size();
     }
 
     private String formatElapsed(long ms) {
@@ -1185,7 +1184,7 @@ public class MainActivity extends AppCompatActivity {
     FirQuestion q = selectedQuestions.get(currentIndex);
 
     StringBuilder sb = new StringBuilder();
-    sb.append("Soy enfermero/a preparando las oposiciones OPE SESPA.\n");
+    sb.append("Soy enfermero/a preparando las oposiciones OPE ENFERMERIA.\n");
     sb.append("Tengo la siguiente pregunta de examen y quiero que me expliques POR QUÉ la respuesta correcta es la que es, y por qué las demás opciones son incorrectas.\n\n");
     sb.append("PREGUNTA (").append(buildQuestionHeader(q)).append("):\n");
     sb.append(q.statement).append("\n\n");
@@ -1216,7 +1215,7 @@ public class MainActivity extends AppCompatActivity {
 
     if (clipboard != null) {
         clipboard.setPrimaryClip(
-                ClipData.newPlainText("Prompt OPE SESPA", text)
+                ClipData.newPlainText("Prompt OPE ENFERMERIA", text)
         );
     }
 

@@ -318,7 +318,7 @@ function streaksOf(qs, answers) {
   qs.forEach((q, idx) => {
     const a = answers[idx];
     if (a == null) {
-      pos = 0; neg = 0;
+      return;
     } else if (a === q.a) {
       pos++; neg = 0;
     } else {
@@ -331,10 +331,18 @@ function streaksOf(qs, answers) {
 }
 
 function runLengthAt(idx) {
-  const hit = (i) => quiz.answers[i] != null && (quiz.answers[i] === quiz.qs[i].a) === (quiz.answers[idx] === quiz.qs[idx].a);
+  const sameKind = (i) => (quiz.answers[i] === quiz.qs[i].a) === (quiz.answers[idx] === quiz.qs[idx].a);
   let len = 1;
-  for (let i = idx - 1; i >= 0 && hit(i); i--) len++;
-  for (let i = idx + 1; i < quiz.qs.length && hit(i); i++) len++;
+  for (let i = idx - 1; i >= 0; i--) {
+    if (quiz.answers[i] == null) continue;
+    if (!sameKind(i)) break;
+    len++;
+  }
+  for (let i = idx + 1; i < quiz.qs.length; i++) {
+    if (quiz.answers[i] == null) continue;
+    if (!sameKind(i)) break;
+    len++;
+  }
   return len;
 }
 

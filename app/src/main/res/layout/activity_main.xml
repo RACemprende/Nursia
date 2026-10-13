@@ -42,7 +42,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Simulacro OPE SESPA"
+                android:text="Simulacro OPE ENFERMERIA"
                 android:textSize="28sp"
                 android:textColor="@color/ink"
                 android:letterSpacing="-0.02" />
@@ -354,7 +354,8 @@
                 android:drawablePadding="8dp"
                 android:text="Descargar y compartir CSV"
                 android:textAllCaps="false"
-                android:textColor="@color/ink" />
+                android:textColor="@color/ink"
+                android:visibility="gone" />
 
             <Button
                 android:id="@+id/restartButton"
@@ -362,7 +363,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/button_soft_action"
-                android:text="Volver a empezar"
+                android:text="Volver al menú principal"
                 android:textAllCaps="false"
                 android:textColor="@color/ink" />
             </LinearLayout>

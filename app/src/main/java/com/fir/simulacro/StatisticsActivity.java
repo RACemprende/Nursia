@@ -43,6 +43,8 @@ public class StatisticsActivity extends AppCompatActivity {
 
         bindViews();
         backButton.setOnClickListener(v -> finish());
+        int[] counts = appDatabaseHelper.getQuestionProgressCounts();
+        ((ProgressRingView) findViewById(R.id.progressRing)).setProgress(counts[0], counts[1]);
         loadMonthlyCalendar();
     }
 

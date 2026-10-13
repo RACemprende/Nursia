@@ -29,7 +29,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         }
 
         // Construir mensaje según la racha actual
-        String title = forceTest ? "🔔 Prueba de recordatorio OPE SESPA" : "🔥 ¡No pierdas tu racha OPE SESPA!";
+        String title = forceTest ? "🔔 Prueba de recordatorio OPE ENFERMERIA" : "🔥 ¡No pierdas tu racha OPE ENFERMERIA!";
         String message;
         if (forceTest) {
             message = "Notificación de prueba enviada correctamente. Racha actual: " + streak + " días.";

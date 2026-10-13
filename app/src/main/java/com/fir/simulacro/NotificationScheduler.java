@@ -22,10 +22,10 @@ public class NotificationScheduler {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Recordatorio diario OPE SESPA",
+                    "Recordatorio diario OPE ENFERMERIA",
                     NotificationManager.IMPORTANCE_DEFAULT
             );
-            channel.setDescription("Recuerda hacer tu simulacro diario OPE SESPA para no perder la racha");
+            channel.setDescription("Recuerda hacer tu simulacro diario OPE ENFERMERIA para no perder la racha");
             NotificationManager nm = ctx.getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(channel);
         }

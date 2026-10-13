@@ -61,7 +61,7 @@ public class OnboardingActivity extends AppCompatActivity {
     private List<OnboardingPage> createPages() {
         List<OnboardingPage> pages = new ArrayList<>();
         pages.add(new OnboardingPage(
-                "Bienvenido a OPE SESPA",
+                "Bienvenido a OPE ENFERMERIA",
                 "Simulacros de oposiciones de enfermería para aprobar",
                 R.drawable.app_icon
         ));
