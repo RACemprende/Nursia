@@ -1640,8 +1640,8 @@
 
     <issue
         id="HardcodedText"
-        message="Hardcoded string &quot;Simulacro OPE SESPA&quot;, should use `@string` resource"
-        errorLine1="                android:text=&quot;Simulacro OPE SESPA&quot;"
+        message="Hardcoded string &quot;Simulacro OPOSICIONES DE ENFERMERIA&quot;, should use `@string` resource"
+        errorLine1="                android:text=&quot;Simulacro OPOSICIONES ENFERMERIA&quot;"
         errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/layout/activity_main.xml"
