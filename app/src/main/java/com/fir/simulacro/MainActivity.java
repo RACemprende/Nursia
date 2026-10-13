@@ -139,6 +139,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         CrashLogger.install(getApplicationContext());
         setContentView(R.layout.activity_main);
+        InsetsHelper.apply(this);
 
         if (CrashLogger.hasCrash(this)) {
             crashSafeMode = true;

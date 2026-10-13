@@ -10,14 +10,14 @@ buildDir = file(System.getProperty("java.io.tmpdir") + "/FirSimulacroAppBuild/ap
 
 android {
     namespace 'com.fir.simulacro'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.opotests.nursia"
         minSdk 24
-        targetSdk 34
-        versionCode 3
-        versionName "2.1"
+        targetSdk 36
+        versionCode 5
+        versionName "2.2"
     }
 
     signingConfigs {
