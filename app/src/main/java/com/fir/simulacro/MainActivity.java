@@ -60,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
     private View quizLayout;
     private View resultLayout;
     private Button startButton;
+    private Button dailyButton;
     private Button resumePausedButton;
     private Button redeemButton;
     private Button failuresButton;
@@ -194,6 +195,7 @@ public class MainActivity extends AppCompatActivity {
         quizLayout = findViewById(R.id.quizLayout);
         resultLayout = findViewById(R.id.resultLayout);
         startButton = findViewById(R.id.startButton);
+        dailyButton = findViewById(R.id.dailyButton);
         resumePausedButton = findViewById(R.id.resumePausedButton);
         redeemButton = findViewById(R.id.redeemButton);
         failuresButton = findViewById(R.id.failuresButton);
@@ -225,6 +227,7 @@ public class MainActivity extends AppCompatActivity {
     private void setupListeners() {
         startButton.setOnClickListener(v -> startSimulation(null, "No hay preguntas disponibles para empezar.", QuizMode.ALL));
         resumePausedButton.setOnClickListener(v -> resumePausedQuiz());
+        dailyButton.setOnClickListener(v -> startDailySimulation());
         redeemButton.setOnClickListener(v -> startActivity(new Intent(this, RewardsActivity.class)));
         failuresButton.setOnClickListener(v -> startSimulation(
                 createStateList("Fallada", "Duda_Fallada"),
@@ -278,6 +281,36 @@ public class MainActivity extends AppCompatActivity {
         Collections.shuffle(allQuestions);
         int quizSize = Math.min(UserSettings.getQuizQuestionCount(this), allQuestions.size());
         selectedQuestions = new ArrayList<>(allQuestions.subList(0, quizSize));
+        launchQuiz();
+    }
+
+    private void startDailySimulation() {
+        clearPausedQuiz();
+        List<FirQuestion> bank = new ArrayList<>();
+        try {
+            for (FirQuestionsDbHelper.QuestionRecord q : firQuestionsDbHelper.loadAllQuestionsUnfiltered()) {
+                bank.add(new FirQuestion(q.comunidad, q.year, q.questionNumber, q.statement, q.options, q.correctIndex));
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Error cargando base de preguntas: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (bank.isEmpty()) {
+            Toast.makeText(this, "No hay preguntas disponibles para empezar.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        currentQuizMode = QuizMode.DAILY;
+        applyBackgroundForMode(QuizMode.DAILY);
+        selectedQuestions = new ArrayList<>();
+        for (int index : DailySimulacro.pickIndices(bank.size(), DailySimulacro.currentDayIndex())) {
+            selectedQuestions.add(bank.get(index));
+        }
+        Toast.makeText(this, "Simulacro del día " + DailySimulacro.currentDayLabel(), Toast.LENGTH_SHORT).show();
+        launchQuiz();
+    }
+
+    private void launchQuiz() {
         currentIndex = 0;
         score = 0;
         results.clear();
@@ -1302,7 +1335,8 @@ public class MainActivity extends AppCompatActivity {
         ALL(R.drawable.bg_mode_all),
         FAILURES(R.drawable.bg_mode_failures),
         DOUBTS(R.drawable.bg_mode_doubts),
-        NEW(R.drawable.bg_mode_new);
+        NEW(R.drawable.bg_mode_new),
+        DAILY(R.drawable.bg_mode_all);
 
         final int backgroundResId;
 

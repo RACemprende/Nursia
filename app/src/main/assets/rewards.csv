@@ -1,2 +1,6 @@
 NOMBRE DEL PREMIO,IMAGEN,COSTE,CODIGO
 Vale por un café,prizes/cafe_prize.png,5,CAFE-GRATIS
+Me toca elegir qué ver,prizes/elegirquever_prize.png,10,ELEGIR-QUE-VER
+Hoy no cocino,prizes/hoynococino_prize.png,20,HOY-NO-COCINO
+Me he ganado salir de casa,prizes/salirdecasa_prize.png,50,SALIR-DE-CASA
+Escapada para desconectar,prizes/escapada_prize.png,500,ESCAPADA-DESCONECTAR

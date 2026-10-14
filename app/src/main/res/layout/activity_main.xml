@@ -70,6 +70,17 @@
                 android:textStyle="bold" />
 
             <Button
+                android:id="@+id/dailyButton"
+                android:layout_width="220dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/button_menu_item"
+                android:text="SIMULACRO DEL DÍA"
+                android:textAllCaps="false"
+                android:textColor="@color/ink"
+                android:textSize="20sp" />
+
+            <Button
                 android:id="@+id/resumePausedButton"
                 android:layout_width="220dp"
                 android:layout_height="wrap_content"

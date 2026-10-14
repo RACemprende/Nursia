@@ -17,6 +17,10 @@ public class FirQuestionsDbHelper {
         return mapQuestions(appDatabaseHelper.loadAllQuestions());
     }
 
+    public List<QuestionRecord> loadAllQuestionsUnfiltered() throws IOException {
+        return mapQuestions(appDatabaseHelper.loadAllQuestionsUnfiltered());
+    }
+
     public List<QuestionRecord> loadQuestionsByStates(List<String> states) throws IOException {
         return mapQuestions(appDatabaseHelper.loadQuestionsByStates(states));
     }

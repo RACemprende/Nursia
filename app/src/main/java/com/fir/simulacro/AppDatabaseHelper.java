@@ -98,15 +98,20 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
 
     public synchronized List<QuestionRecord> loadAllQuestions() throws IOException {
         SQLiteDatabase db = getInitializedDatabase();
-        return queryQuestions(db, null);
+        return queryQuestions(db, null, true);
     }
 
     public synchronized List<QuestionRecord> loadQuestionsByStates(List<String> states) throws IOException {
         SQLiteDatabase db = getInitializedDatabase();
-        return queryQuestions(db, states);
+        return queryQuestions(db, states, true);
     }
 
-    private List<QuestionRecord> queryQuestions(SQLiteDatabase db, List<String> states) {
+    public synchronized List<QuestionRecord> loadAllQuestionsUnfiltered() throws IOException {
+        SQLiteDatabase db = getInitializedDatabase();
+        return queryQuestions(db, null, false);
+    }
+
+    private List<QuestionRecord> queryQuestions(SQLiteDatabase db, List<String> states, boolean applyCommunityFilter) {
         List<QuestionRecord> questions = new ArrayList<>();
         Set<String> theoryCommunities = UserSettings.getTheoryCommunitiesFilter(context);
         Set<String> legislationCommunities = UserSettings.getLegislationCommunitiesFilter(context);
@@ -139,7 +144,9 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
             sql.append(" AND p.estado IN (").append(placeholders).append(")");
             argsList.addAll(states);
         }
-        appendCommunityFilter(sql, argsList, alias, theoryCommunities, legislationCommunities);
+        if (applyCommunityFilter) {
+            appendCommunityFilter(sql, argsList, alias, theoryCommunities, legislationCommunities);
+        }
         sql.append(" ORDER BY ").append(alias).append("comunidad, ")
                 .append(alias).append("exam_year, ")
                 .append(alias).append("question_number");
