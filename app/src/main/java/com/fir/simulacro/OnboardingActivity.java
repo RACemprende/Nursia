@@ -78,7 +78,7 @@ public class OnboardingActivity extends AppCompatActivity {
         pages.add(new OnboardingPage(
                 "Insignias y logros",
                 "Desbloquea insignias por rachas, simulacros completados y otros logros. ¡Juega todos los días!",
-                R.drawable.badge_daily_1_img
+                R.drawable.badge_exams_1_img
         ));
         return pages;
     }

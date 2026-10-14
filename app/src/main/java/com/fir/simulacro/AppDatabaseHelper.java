@@ -50,6 +50,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
     private static final String TABLE_BADGES = "badges";
 
     private static final String STATE_POINTS = "points";
+    private static final String STATE_THRESHOLD_EXCEEDED_COUNT = "threshold_exceeded_count";
     private static final String STATE_PROGRESS_MIGRATED = "legacy_progress_migrated";
     private static final String STATE_POINTS_MIGRATED = "legacy_points_migrated";
     private static final String STATE_PROGRESS_V2_MIGRATED = "progress_state_v2_migrated";
@@ -60,7 +61,8 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
     private static final String STATE_BEST_NEGATIVE_STREAK = "best_negative_streak";
     private static final String STATE_CLOUD_LAST_MODIFIED = "cloud_last_modified_ms";
 
-    private static final int[] STREAK_THRESHOLDS = {3, 5, 10, 20, 25, 50, 100};
+    private static final int[] POSITIVE_STREAK_THRESHOLDS = {3, 5, 10, 20, 30};
+    private static final int[] NEGATIVE_STREAK_THRESHOLDS = {3, 5, 10};
     private static final String LEGISLATION_SUBJECT = "Legislación";
 
     private final Context context;
@@ -461,7 +463,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 ));
                 touchCloudState(db);
                 db.setTransactionSuccessful();
-                return isThreshold(positiveStreak)
+                return isThreshold(true, positiveStreak)
                         ? new StreakAchievement(true, positiveStreak)
                         : null;
             }
@@ -476,7 +478,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 ));
                 touchCloudState(db);
                 db.setTransactionSuccessful();
-                return isThreshold(negativeStreak)
+                return isThreshold(false, negativeStreak)
                         ? new StreakAchievement(false, negativeStreak)
                         : null;
             }
@@ -1049,6 +1051,25 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+    public synchronized int incrementThresholdExceededCount() {
+        try {
+            SQLiteDatabase db = getInitializedDatabase();
+            int current = 0;
+            try {
+                String raw = getAppState(db, STATE_THRESHOLD_EXCEEDED_COUNT);
+                if (raw != null) current = Integer.parseInt(raw.trim());
+            } catch (NumberFormatException ignored) {
+            }
+            int next = current + 1;
+            setAppState(db, STATE_THRESHOLD_EXCEEDED_COUNT, String.valueOf(next));
+            touchCloudState(db);
+            return next;
+        } catch (Exception e) {
+            android.util.Log.e("AppDB", "Error incrementing threshold count", e);
+            return 0;
+        }
+    }
+
     public synchronized boolean unlockBadge(String badgeId) {
         try {
             SQLiteDatabase db = getInitializedDatabase();
@@ -1119,6 +1140,21 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+    public synchronized int getExamAttemptsCountToday() {
+        try {
+            SQLiteDatabase db = getInitializedDatabase();
+            try (Cursor c = db.rawQuery(
+                    "SELECT COUNT(*) FROM " + TABLE_EXAM_ATTEMPTS + " " +
+                    "WHERE date(timestamp_inicio/1000, 'unixepoch', 'localtime') = date('now', 'localtime')",
+                    null)) {
+                return c.moveToFirst() ? c.getInt(0) : 0;
+            }
+        } catch (Exception e) {
+            android.util.Log.e("AppDB", "Error counting today's exam attempts", e);
+            return 0;
+        }
+    }
+
     public synchronized int getCompletedExamAttemptsCount() {
         try {
             SQLiteDatabase db = getInitializedDatabase();
@@ -1147,27 +1183,6 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
             }
         } catch (Exception e) {
             android.util.Log.e("AppDB", "Error checking state " + normalized, e);
-            return false;
-        }
-    }
-
-    public synchronized boolean hasCompletedAllQuestions() {
-        try {
-            SQLiteDatabase db = getInitializedDatabase();
-            try (Cursor c = db.rawQuery(
-                    "SELECT " +
-                            "SUM(CASE WHEN estado = 'Pendiente' THEN 1 ELSE 0 END) AS pending_count, " +
-                            "COUNT(*) AS total_count " +
-                            "FROM " + TABLE_QUESTION_PROGRESS,
-                    null
-            )) {
-                if (!c.moveToFirst()) return false;
-                int pendingCount = c.getInt(0);
-                int totalCount = c.getInt(1);
-                return totalCount > 0 && pendingCount == 0;
-            }
-        } catch (Exception e) {
-            android.util.Log.e("AppDB", "Error checking full completion", e);
             return false;
         }
     }
@@ -1396,28 +1411,42 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
             {"streak_pos_5",   "Racha 5 aciertos",    "5 respuestas correctas seguidas",    "streak_positive_5_img"},
             {"streak_pos_10",  "Racha 10 aciertos",   "10 respuestas correctas seguidas",   "streak_positive_10_img"},
             {"streak_pos_20",  "Racha 20 aciertos",   "20 respuestas correctas seguidas",   "streak_positive_20_img"},
-            {"streak_pos_25",  "Racha 25 aciertos",   "25 respuestas correctas seguidas",   "streak_positive_25_img"},
-            {"streak_pos_50",  "Racha 50 aciertos",   "50 respuestas correctas seguidas",   "streak_positive_50_img"},
-            {"streak_pos_100", "Racha 100 aciertos",  "100 respuestas correctas seguidas",  "streak_positive_100_img"},
+            {"streak_pos_30",  "Racha 30 aciertos",   "30 respuestas correctas seguidas",   "streak_positive_30_img"},
             {"streak_neg_3",   "Racha 3 fallos",      "3 respuestas incorrectas seguidas",  "streak_negative_3_img"},
             {"streak_neg_5",   "Racha 5 fallos",      "5 respuestas incorrectas seguidas",  "streak_negative_5_img"},
             {"streak_neg_10",  "Racha 10 fallos",     "10 respuestas incorrectas seguidas", "streak_negative_10_img"},
-            {"streak_neg_20",  "Racha 20 fallos",     "20 respuestas incorrectas seguidas", "streak_negative_20_img"},
-            {"streak_neg_25",  "Racha 25 fallos",     "25 respuestas incorrectas seguidas", "streak_negative_25_img"},
-            {"streak_neg_50",  "Racha 50 fallos",     "50 respuestas incorrectas seguidas", "streak_negative_50_img"},
-            {"streak_neg_100", "Racha 100 fallos",    "100 respuestas incorrectas seguidas","streak_negative_100_img"},
-            {"daily_1",  "Un día seguido",   "Completa tu primer simulacro",       "badge_daily_1_img"},
+            {"daily_1",  "Un día seguido",   "Completa tu primer simulacro",       "badge_exams_1_img"},
             {"daily_3",  "3 días seguidos",  "Simulacros 3 días consecutivos",     "badge_exams_3_img"},
-            {"daily_5",  "5 días seguidos",  "Simulacros 5 días consecutivos",     "badge_daily_5_img"},
-            {"daily_7",  "7 días seguidos",  "Simulacros 7 días consecutivos",     "badge_daily_7_img"},
+            {"daily_5",  "5 días seguidos",  "Simulacros 5 días consecutivos",     "badge_exams_5_img"},
+            {"daily_7",  "7 días seguidos",  "Simulacros 7 días consecutivos",     "badge_exams_7_img"},
+            {"daily_10", "10 días seguidos", "Simulacros 10 días consecutivos",    "badge_exams_10_img"},
+            {"daily_15", "15 días seguidos", "Simulacros 15 días consecutivos",    "badge_exams_15_img"},
+            {"daily_20", "20 días seguidos", "Simulacros 20 días consecutivos",    "badge_exams_20_img"},
+            {"daily_40", "40 días seguidos", "Simulacros 40 días consecutivos",    "badge_exams_40_img"},
+            {"daily_50", "50 días seguidos", "Simulacros 50 días consecutivos",    "badge_exams_50_img"},
+            {"daily_75", "75 días seguidos", "Simulacros 75 días consecutivos",    "badge_exams_75_img"},
+            {"daily_100", "100 días seguidos", "Simulacros 100 días consecutivos", "badge_exams_100_img"},
             {"perfect_exam", "Simulacro perfecto", "Completa un simulacro sin ningún fallo", "badge_perfect_exam_img"},
             {"full_database", "Base completada", "Completa todas las preguntas de la base de datos", "badge_full_database_img"},
             {"first_doubt_hit", "Primera dudada acertada", "Consigue tu primera Duda_Segunda", "badge_first_doubt_hit_img"},
-            {"exams_10", "10 simulacros", "Completa 10 simulacros", "badge_exams_10_img"},
-            {"exams_25", "25 simulacros", "Completa 25 simulacros", "badge_exams_25_img"},
-            {"exams_50", "50 simulacros", "Completa 50 simulacros", "badge_exams_50_img"},
-            {"exams_100", "100 simulacros", "Completa 100 simulacros", "badge_exams_100_img"},
+            {"exams_10", "10 simulacros", "Completa 10 simulacros", "badge_top_exams_10_img"},
+            {"exams_50", "50 simulacros", "Completa 50 simulacros", "badge_top_exams_50_img"},
+            {"exams_100", "100 simulacros", "Completa 100 simulacros", "badge_top_exams_100_img"},
             {"superando_limites", "Superando Límites", "Supera tu umbral objetivo de aciertos en un simulacro", "badge_superando_limites_img"},
+            {"threshold_5", "5 por encima", "Supera tu umbral objetivo en 5 simulacros", "badge_threshold_5_img"},
+            {"threshold_10", "10 por encima", "Supera tu umbral objetivo en 10 simulacros", "badge_threshold_10_img"},
+            {"threshold_25", "25 por encima", "Supera tu umbral objetivo en 25 simulacros", "badge_threshold_25_img"},
+            {"threshold_50", "50 por encima", "Supera tu umbral objetivo en 50 simulacros", "badge_threshold_50_img"},
+            {"day_exams_2",  "2 en un día",  "Completa 2 simulacros en un solo día",  "badge_day_exams_2_img"},
+            {"day_exams_3",  "3 en un día",  "Completa 3 simulacros en un solo día",  "badge_day_exams_3_img"},
+            {"day_exams_5",  "5 en un día",  "Completa 5 simulacros en un solo día",  "badge_day_exams_5_img"},
+            {"day_exams_7",  "7 en un día",  "Completa 7 simulacros en un solo día",  "badge_day_exams_7_img"},
+            {"day_exams_10", "10 en un día", "Completa 10 simulacros en un solo día", "badge_day_exams_10_img"},
+            {"db_progress_10", "10% de la base", "Completa el 10% de las preguntas de tu base de datos", "badge_full_database_10_img"},
+            {"db_progress_25", "25% de la base", "Completa el 25% de las preguntas de tu base de datos", "badge_full_database_25_img"},
+            {"db_progress_50", "50% de la base", "Completa el 50% de las preguntas de tu base de datos", "badge_full_database_50_img"},
+            {"db_progress_75", "75% de la base", "Completa el 75% de las preguntas de tu base de datos", "badge_full_database_75_img"},
+            {"all_badges", "Todas las insignias", "Desbloquea todas las demás insignias", "badge_all_badges_img"},
         };
 
         for (String[] b : badges) {
@@ -1430,6 +1459,15 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
             cv.put("fecha_desbloqueo", 0L);
             db.insertWithOnConflict(TABLE_BADGES, null, cv, SQLiteDatabase.CONFLICT_IGNORE);
         }
+        db.execSQL("UPDATE " + TABLE_BADGES + " SET imagen_drawable = 'badge_exams_1_img' WHERE id = 'daily_1'");
+        db.execSQL("UPDATE " + TABLE_BADGES + " SET imagen_drawable = 'badge_exams_5_img' WHERE id = 'daily_5'");
+        db.execSQL("UPDATE " + TABLE_BADGES + " SET imagen_drawable = 'badge_exams_7_img' WHERE id = 'daily_7'");
+        db.execSQL("UPDATE " + TABLE_BADGES + " SET imagen_drawable = 'badge_top_exams_10_img' WHERE id = 'exams_10'");
+        db.execSQL("UPDATE " + TABLE_BADGES + " SET imagen_drawable = 'badge_top_exams_50_img' WHERE id = 'exams_50'");
+        db.execSQL("UPDATE " + TABLE_BADGES + " SET imagen_drawable = 'badge_top_exams_100_img' WHERE id = 'exams_100'");
+        db.execSQL("DELETE FROM " + TABLE_BADGES + " WHERE id IN ('streak_pos_25', 'streak_pos_50', 'streak_pos_100', " +
+                "'streak_neg_20', 'streak_neg_25', 'streak_neg_50', 'streak_neg_100')");
+        db.execSQL("DELETE FROM " + TABLE_BADGES + " WHERE id IN ('exams_1', 'exams_15', 'exams_20', 'exams_25', 'exams_40', 'exams_75')");
         setAppState(db, "badges_seeded", "1");
     }
 
@@ -1853,8 +1891,8 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         return "Fallada".equals(estado) || "Duda_Segunda".equals(estado) || "Duda_Fallada".equals(estado);
     }
 
-    private boolean isThreshold(int streakValue) {
-        for (int threshold : STREAK_THRESHOLDS) {
+    private boolean isThreshold(boolean positive, int streakValue) {
+        for (int threshold : positive ? POSITIVE_STREAK_THRESHOLDS : NEGATIVE_STREAK_THRESHOLDS) {
             if (threshold == streakValue) {
                 return true;
             }

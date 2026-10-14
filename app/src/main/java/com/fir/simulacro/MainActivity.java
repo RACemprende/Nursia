@@ -83,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView netasText;
     private TextView finalTimeText;
     private TextView earnedPointsText;
-    private Button downloadCsvButton;
+    private Button anotherSimulationButton;
     private Button restartButton;
     private Button copyPromptButton;
 
@@ -106,13 +106,6 @@ public class MainActivity extends AppCompatActivity {
     private AppDatabaseHelper appDatabaseHelper;
     private FirQuestionsDbHelper firQuestionsDbHelper;
     private QuestionProgressDbHelper questionProgressDbHelper;
-
-    private final ActivityResultLauncher<String> createCsvLauncher =
-            registerForActivityResult(new ActivityResultContracts.CreateDocument("text/csv"), uri -> {
-                if (uri != null) {
-                    saveResultsCsv(uri);
-                }
-            });
 
     private final ActivityResultLauncher<String> notificationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
@@ -224,7 +217,7 @@ public class MainActivity extends AppCompatActivity {
         netasText = findViewById(R.id.netasText);
         finalTimeText = findViewById(R.id.finalTimeText);
         earnedPointsText = findViewById(R.id.earnedPointsText);
-        downloadCsvButton = findViewById(R.id.downloadCsvButton);
+        anotherSimulationButton = findViewById(R.id.anotherSimulationButton);
         restartButton = findViewById(R.id.restartButton);
         copyPromptButton = findViewById(R.id.copyPromptButton);
     }
@@ -261,8 +254,8 @@ public class MainActivity extends AppCompatActivity {
         pauseQuizButton.setOnClickListener(v -> pauseQuiz());
         restartButton.setOnClickListener(v -> showStartScreen());
         copyPromptButton.setOnClickListener(v -> copyQuestionPromptToClipboard());
-        downloadCsvButton.setOnClickListener(v ->
-                createCsvLauncher.launch("resultado_simulacro_enfermeria.csv")
+        anotherSimulationButton.setOnClickListener(v ->
+                startSimulation(null, "No hay preguntas disponibles para empezar.", QuizMode.ALL)
         );
         applyBackgroundForMode(QuizMode.HOME);
         refreshPointsUi();
@@ -487,7 +480,10 @@ public class MainActivity extends AppCompatActivity {
                 List<AppDatabaseHelper.Badge> badges = appDatabaseHelper.getAllBadges();
                 for (AppDatabaseHelper.Badge b : badges) {
                     if (b.id.equals(badgeId)) {
-                        showBadgeUnlockedDialog(b, null);
+                        showBadgeUnlockedDialog(b, () -> {
+                            AppDatabaseHelper.Badge meta = unlockAllBadgesIfComplete();
+                            if (meta != null) showBadgeUnlockedDialog(meta, null);
+                        });
                         break;
                     }
                 }
@@ -637,6 +633,8 @@ public class MainActivity extends AppCompatActivity {
             );
             postExamBadges.addAll(collectNewExamBadges(acertadas, falladas, dudaPrimera, dudaSegunda, dudaFallada, vacias));
             postExamBadges.addAll(checkAndGetDailyBadges());
+            AppDatabaseHelper.Badge allBadgesBadge = unlockAllBadgesIfComplete();
+            if (allBadgesBadge != null) postExamBadges.add(allBadgesBadge);
             if (firstSimulationOfToday) {
                 showFirstSimulationOfDayDialog(() -> showDailyBadgeSequence(postExamBadges, 0));
             } else {
@@ -683,8 +681,14 @@ public class MainActivity extends AppCompatActivity {
             maybeAddUnlockedBadge(unlocked, allBadges, "perfect_exam");
         }
 
-        if (appDatabaseHelper.hasCompletedAllQuestions()) {
-            maybeAddUnlockedBadge(unlocked, allBadges, "full_database");
+        int[] progress = appDatabaseHelper.getQuestionProgressCounts();
+        if (progress[1] > 0) {
+            if (progress[0] >= progress[1]) maybeAddUnlockedBadge(unlocked, allBadges, "full_database");
+            double donePercent = progress[0] * 100.0 / progress[1];
+            if (donePercent >= 10) maybeAddUnlockedBadge(unlocked, allBadges, "db_progress_10");
+            if (donePercent >= 25) maybeAddUnlockedBadge(unlocked, allBadges, "db_progress_25");
+            if (donePercent >= 50) maybeAddUnlockedBadge(unlocked, allBadges, "db_progress_50");
+            if (donePercent >= 75) maybeAddUnlockedBadge(unlocked, allBadges, "db_progress_75");
         }
 
         if (appDatabaseHelper.hasAnyQuestionWithState("Duda_Segunda")) {
@@ -693,19 +697,44 @@ public class MainActivity extends AppCompatActivity {
 
         int attempts = appDatabaseHelper.getCompletedExamAttemptsCount();
         if (attempts >= 10) maybeAddUnlockedBadge(unlocked, allBadges, "exams_10");
-        if (attempts >= 25) maybeAddUnlockedBadge(unlocked, allBadges, "exams_25");
         if (attempts >= 50) maybeAddUnlockedBadge(unlocked, allBadges, "exams_50");
         if (attempts >= 100) maybeAddUnlockedBadge(unlocked, allBadges, "exams_100");
+
+        int today = appDatabaseHelper.getExamAttemptsCountToday();
+        if (today >= 2) maybeAddUnlockedBadge(unlocked, allBadges, "day_exams_2");
+        if (today >= 3) maybeAddUnlockedBadge(unlocked, allBadges, "day_exams_3");
+        if (today >= 5) maybeAddUnlockedBadge(unlocked, allBadges, "day_exams_5");
+        if (today >= 7) maybeAddUnlockedBadge(unlocked, allBadges, "day_exams_7");
+        if (today >= 10) maybeAddUnlockedBadge(unlocked, allBadges, "day_exams_10");
 
         if (!selectedQuestions.isEmpty()) {
             int thresholdPercent = UserSettings.getAccuracyThresholdPercent(this);
             double accuracyPercent = ((acertadas + dudaPrimera) * 100.0) / selectedQuestions.size();
             if (accuracyPercent >= thresholdPercent) {
                 maybeAddUnlockedBadge(unlocked, allBadges, "superando_limites");
+                int exceeded = appDatabaseHelper.incrementThresholdExceededCount();
+                if (exceeded >= 5) maybeAddUnlockedBadge(unlocked, allBadges, "threshold_5");
+                if (exceeded >= 10) maybeAddUnlockedBadge(unlocked, allBadges, "threshold_10");
+                if (exceeded >= 25) maybeAddUnlockedBadge(unlocked, allBadges, "threshold_25");
+                if (exceeded >= 50) maybeAddUnlockedBadge(unlocked, allBadges, "threshold_50");
             }
         }
 
         return unlocked;
+    }
+
+    private AppDatabaseHelper.Badge unlockAllBadgesIfComplete() {
+        List<AppDatabaseHelper.Badge> badges = appDatabaseHelper.getAllBadges();
+        AppDatabaseHelper.Badge meta = null;
+        for (AppDatabaseHelper.Badge b : badges) {
+            if ("all_badges".equals(b.id)) {
+                meta = b;
+            } else if (!b.desbloqueada) {
+                return null;
+            }
+        }
+        if (meta == null || !appDatabaseHelper.unlockBadge("all_badges")) return null;
+        return meta;
     }
 
     private void maybeAddUnlockedBadge(List<AppDatabaseHelper.Badge> target, List<AppDatabaseHelper.Badge> allBadges, String badgeId) {
@@ -730,41 +759,6 @@ public class MainActivity extends AppCompatActivity {
         timerText.setText("Tiempo: 00:00");
         refreshPointsUi();
         updatePausedQuizUi();
-    }
-
-    private void saveResultsCsv(Uri uri) {
-        try (OutputStream stream = getContentResolver().openOutputStream(uri);
-             OutputStreamWriter writer = new OutputStreamWriter(stream)) {
-            writer.write("Comunidad,A\u00f1o,N\u00famero de pregunta,Enunciado,Respuesta marcada,Resultado\n");
-            for (AnswerResult r : results) {
-                String safeStatement = r.statement.replace("\"", "\"\"");
-                String safeSelected = r.selectedAnswer.replace("\"", "\"\"");
-                String resultText = r.correct ? "acertaste" : "fallaste";
-                writer.write("\"" + (r.comunidad == null ? "" : r.comunidad.replace("\"", "\"\"")) + "\"," + r.year + "," + r.questionNumber + ",\"" + safeStatement + "\",\"" + safeSelected + "\"," + resultText + "\n");
-            }
-            writer.flush();
-            Toast.makeText(this, "CSV guardado correctamente", Toast.LENGTH_LONG).show();
-            shareResultsCsv(uri);
-        } catch (Exception e) {
-            Toast.makeText(this, "No se pudo guardar el CSV: " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void shareResultsCsv(Uri uri) {
-        Intent baseIntent = new Intent(Intent.ACTION_SEND);
-        baseIntent.setType("text/csv");
-        baseIntent.putExtra(Intent.EXTRA_STREAM, uri);
-        baseIntent.putExtra(Intent.EXTRA_SUBJECT, "Resultados NURSIA");
-        baseIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-        Intent whatsappIntent = new Intent(baseIntent);
-        whatsappIntent.setPackage("com.whatsapp");
-
-        if (whatsappIntent.resolveActivity(getPackageManager()) != null) {
-            startActivity(whatsappIntent);
-        } else {
-            startActivity(Intent.createChooser(baseIntent, "Compartir resultados CSV"));
-        }
     }
 
     private List<FirQuestion> loadQuestionsFromDatabase(List<String> statesFilter) {
@@ -1083,12 +1077,8 @@ public class MainActivity extends AppCompatActivity {
                     return R.drawable.streak_positive_10_img;
                 case 20:
                     return R.drawable.streak_positive_20_img;
-                case 25:
-                    return R.drawable.streak_positive_25;
-                case 50:
-                    return R.drawable.streak_positive_50;
-                case 100:
-                    return R.drawable.streak_positive_100;
+                case 30:
+                    return R.drawable.streak_positive_30_img;
                 default:
                     return R.drawable.streak_positive_3_img;
             }
@@ -1101,14 +1091,6 @@ public class MainActivity extends AppCompatActivity {
                 return R.drawable.streak_negative_5_img;
             case 10:
                 return R.drawable.streak_negative_10_img;
-            case 20:
-                return R.drawable.streak_negative_20;
-            case 25:
-                return R.drawable.streak_negative_25;
-            case 50:
-                return R.drawable.streak_negative_50;
-            case 100:
-                return R.drawable.streak_negative_100;
             default:
                 return R.drawable.streak_negative_3_img;
         }
@@ -1144,8 +1126,9 @@ public class MainActivity extends AppCompatActivity {
 
     private java.util.List<AppDatabaseHelper.Badge> checkAndGetDailyBadges() {
         int days = appDatabaseHelper.getConsecutiveDaysStreak();
-        int[] thresholds = {1, 3, 5, 7};
-        String[] badgeIds = {"daily_1", "daily_3", "daily_5", "daily_7"};
+        int[] thresholds = {1, 3, 5, 7, 10, 15, 20, 40, 50, 75, 100};
+        String[] badgeIds = {"daily_1", "daily_3", "daily_5", "daily_7", "daily_10", "daily_15",
+                "daily_20", "daily_40", "daily_50", "daily_75", "daily_100"};
 
         java.util.List<AppDatabaseHelper.Badge> toShow = new java.util.ArrayList<>();
         java.util.List<AppDatabaseHelper.Badge> allBadges = appDatabaseHelper.getAllBadges();

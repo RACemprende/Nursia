@@ -25,10 +25,10 @@ const BADGES = [
   { id: "neg_3", type: "neg", n: 3, name: "Racha 3 fallos", desc: "3 fallos seguidos en un simulacro", img: "streak_negative_3_img.png", emoji: "🧊" },
   { id: "neg_5", type: "neg", n: 5, name: "Racha 5 fallos", desc: "5 fallos seguidos en un simulacro", img: "streak_negative_5_img.png", emoji: "🧊" },
   { id: "neg_10", type: "neg", n: 10, name: "Racha 10 fallos", desc: "10 fallos seguidos en un simulacro", img: "streak_negative_10_img.png", emoji: "🧊" },
-  { id: "daily_1", type: "days", n: 1, name: "Un día seguido", desc: "Completa tu primer simulacro", img: "badge_daily_1_img.png", emoji: "📅" },
-  { id: "daily_3", type: "days", n: 3, name: "3 días seguidos", desc: "Simulacros 3 días consecutivos", img: null, emoji: "📅" },
-  { id: "daily_5", type: "days", n: 5, name: "5 días seguidos", desc: "Simulacros 5 días consecutivos", img: null, emoji: "📅" },
-  { id: "daily_7", type: "days", n: 7, name: "7 días seguidos", desc: "Simulacros 7 días consecutivos", img: null, emoji: "🏆" }
+  { id: "daily_1", type: "days", n: 1, name: "Un día seguido", desc: "Completa tu primer simulacro", img: "badge_daily_1_img.jpg", emoji: "📅" },
+  { id: "daily_3", type: "days", n: 3, name: "3 días seguidos", desc: "Simulacros 3 días consecutivos", img: "badge_daily_3_img.png", emoji: "📅" },
+  { id: "daily_5", type: "days", n: 5, name: "5 días seguidos", desc: "Simulacros 5 días consecutivos", img: "badge_daily_5_img.jpg", emoji: "📅" },
+  { id: "daily_7", type: "days", n: 7, name: "7 días seguidos", desc: "Simulacros 7 días consecutivos", img: "badge_daily_7_img.jpg", emoji: "🏆" }
 ];
 
 let user = null;

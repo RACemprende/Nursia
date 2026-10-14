@@ -345,17 +345,14 @@
                 android:textStyle="bold" />
 
             <Button
-                android:id="@+id/downloadCsvButton"
+                android:id="@+id/anotherSimulationButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:background="@drawable/button_soft_action"
-                android:drawableStart="@android:drawable/ic_menu_share"
-                android:drawablePadding="8dp"
-                android:text="Descargar y compartir CSV"
+                android:text="Estoy fuerte, me apetece otro"
                 android:textAllCaps="false"
-                android:textColor="@color/ink"
-                android:visibility="gone" />
+                android:textColor="@color/ink" />
 
             <Button
                 android:id="@+id/restartButton"

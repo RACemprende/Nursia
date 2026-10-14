@@ -24,15 +24,15 @@ public class BadgesActivity extends AppCompatActivity {
      * Coloca los PNG de insignias en:
      *   FirSimulacroApp/app/src/main/res/drawable-nodpi/
      * con estos nombres exactos:
-     *   badge_daily_1_img.png    – Un día seguido
-     *   badge_daily_3_img.png    – 3 días seguidos
-     *   badge_daily_5_img.png    – 5 días seguidos
-     *   badge_daily_7_img.png    – 7 días seguidos
-     *   streak_positive_25_img.png, streak_positive_50_img.png, streak_positive_100_img.png
-     *   streak_negative_20_img.png, streak_negative_25_img.png, streak_negative_50_img.png, streak_negative_100_img.png
+     *   streak_positive_{3,5,10,20,30}_img, streak_negative_{3,5,10}_img
      *   badge_perfect_exam_img.png, badge_full_database_img.png, badge_first_doubt_hit_img.png
-     *   badge_exams_10_img.png, badge_exams_25_img.png, badge_exams_50_img.png, badge_exams_100_img.png
+     *   badge_exams_N_img (N = 1, 3, 5, 7, 10, 15, 20, 40, 50, 75, 100) – N días seguidos
+     *   badge_top_exams_10_img, badge_top_exams_50_img, badge_top_exams_100_img – simulacros en total
+     *   badge_day_exams_2_img, _3_, _5_, _7_, _10_ – N simulacros en un solo día
+     *   badge_full_database_{10,25,50,75}_img – % de la base completada (con filtros)
+     *   badge_all_badges_img – todas las demás insignias desbloqueadas
      *   badge_superando_limites_img.png
+     *   badge_threshold_5_img, badge_threshold_10_img, badge_threshold_25_img, badge_threshold_50_img
      * Los que no tengan PNG mostrarán el placeholder por defecto.
      */
 
