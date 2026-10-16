@@ -38,13 +38,17 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
     private static final String PAUSED_QUIZ_PREFS = "paused_quiz_prefs";
     private static final String PAUSED_QUIZ_KEY = "paused_quiz_json";
     private static final String PREF_QUIZ_TUTORIAL_SEEN = "quiz_tutorial_seen";
+    private static final String DAILY_RESULT_PREFS = "daily_result_prefs";
+    private static final String DAILY_RESULT_KEY = "daily_result_json";
     private static final int REAL_EXAM_QUESTION_COUNT = 200;
     private static final int WRONG_ANSWERS_PER_PENALTY = 3;
     private static final int[] OPTION_BUTTON_BACKGROUNDS = {
@@ -61,6 +65,9 @@ public class MainActivity extends AppCompatActivity {
     private View resultLayout;
     private Button startButton;
     private Button dailyButton;
+    private Button examButton;
+    private TextView resultTitle;
+    private LinearLayout examReviewContainer;
     private Button resumePausedButton;
     private Button redeemButton;
     private Button failuresButton;
@@ -93,6 +100,9 @@ public class MainActivity extends AppCompatActivity {
     private long examStartEpochMs = 0L;
     private boolean timerRunning = false;
     private QuizMode currentQuizMode = QuizMode.ALL;
+    private long examLimitMs = 0L;
+    private boolean examTimedOut = false;
+    private final List<Integer> examSelectedIndices = new ArrayList<>();
 
     private List<FirQuestion> selectedQuestions = new ArrayList<>();
     private int currentIndex = 0;
@@ -121,6 +131,18 @@ public class MainActivity extends AppCompatActivity {
             if (!timerRunning) return;
             long elapsed = SystemClock.elapsedRealtime() - startTimeMs;
             lastElapsedMs = elapsed;
+            if (currentQuizMode == QuizMode.EXAM) {
+                long remaining = examLimitMs - elapsed;
+                if (remaining <= 0) {
+                    timerText.setText("Tiempo restante: 00:00");
+                    examTimedOut = true;
+                    finishSimulation();
+                    return;
+                }
+                timerText.setText("Tiempo restante: " + formatElapsed(remaining + 999L));
+                handler.postDelayed(this, Math.min(1000L, remaining));
+                return;
+            }
             timerText.setText("Tiempo: " + formatElapsed(elapsed));
             handler.postDelayed(this, 1000L);
         }
@@ -196,6 +218,9 @@ public class MainActivity extends AppCompatActivity {
         resultLayout = findViewById(R.id.resultLayout);
         startButton = findViewById(R.id.startButton);
         dailyButton = findViewById(R.id.dailyButton);
+        examButton = findViewById(R.id.examButton);
+        resultTitle = findViewById(R.id.resultTitle);
+        examReviewContainer = findViewById(R.id.examReviewContainer);
         resumePausedButton = findViewById(R.id.resumePausedButton);
         redeemButton = findViewById(R.id.redeemButton);
         failuresButton = findViewById(R.id.failuresButton);
@@ -228,6 +253,7 @@ public class MainActivity extends AppCompatActivity {
         startButton.setOnClickListener(v -> startSimulation(null, "No hay preguntas disponibles para empezar.", QuizMode.ALL));
         resumePausedButton.setOnClickListener(v -> resumePausedQuiz());
         dailyButton.setOnClickListener(v -> startDailySimulation());
+        examButton.setOnClickListener(v -> showExamCommunityMenu());
         redeemButton.setOnClickListener(v -> startActivity(new Intent(this, RewardsActivity.class)));
         failuresButton.setOnClickListener(v -> startSimulation(
                 createStateList("Fallada", "Duda_Fallada"),
@@ -285,6 +311,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startDailySimulation() {
+        if (showDailyResultIfAlreadyDone()) {
+            return;
+        }
         clearPausedQuiz();
         List<FirQuestion> bank = new ArrayList<>();
         try {
@@ -314,8 +343,11 @@ public class MainActivity extends AppCompatActivity {
         currentIndex = 0;
         score = 0;
         results.clear();
+        examSelectedIndices.clear();
+        examTimedOut = false;
         feedbackText.setVisibility(View.GONE);
         nextButton.setVisibility(View.GONE);
+        applyExamUiRestrictions();
 
         startTimeMs = SystemClock.elapsedRealtime();
         examStartEpochMs = System.currentTimeMillis();
@@ -351,6 +383,9 @@ public class MainActivity extends AppCompatActivity {
     private void showQuestion() {
         FirQuestion q = selectedQuestions.get(currentIndex);
         currentQuestionStartMs = SystemClock.elapsedRealtime();
+        if (rootScrollView != null) {
+            rootScrollView.scrollTo(0, 0);
+        }
         progressText.setText("Pregunta " + (currentIndex + 1) + "/" + selectedQuestions.size());
         yearText.setText(buildQuestionHeader(q));
         questionText.setText(q.statement);
@@ -411,12 +446,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onOptionSelected(int selectedIndex, String selectedText) {
+        boolean exam = currentQuizMode == QuizMode.EXAM;
+        if (exam && SystemClock.elapsedRealtime() - currentQuestionStartMs < 400L) {
+            return;
+        }
         FirQuestion q = selectedQuestions.get(currentIndex);
         boolean correct = selectedIndex == q.correctIndex;
         String status = resolveAnswerStatus(q, selectedIndex);
         long durationMs = SystemClock.elapsedRealtime() - currentQuestionStartMs;
         long timestampMs = System.currentTimeMillis();
-        highlightAnswerOptions(selectedIndex, q.correctIndex, correct);
+        if (!exam) {
+            highlightAnswerOptions(selectedIndex, q.correctIndex, correct);
+        }
 
         if (correct) {
             score++;
@@ -431,6 +472,7 @@ public class MainActivity extends AppCompatActivity {
                 correct,
                 status
         ));
+        examSelectedIndices.add(selectedIndex);
 
         questionProgressDbHelper.saveLatestProgress(
                 q.comunidad,
@@ -440,6 +482,10 @@ public class MainActivity extends AppCompatActivity {
                 durationMs,
                 timestampMs
         );
+        if (exam) {
+            moveToNextQuestion();
+            return;
+        }
         maybeShowStreakAchievement(status);
 
         setOptionsEnabled(false);
@@ -448,11 +494,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onQuestionMarkedWithoutAnswer(String status) {
+        boolean exam = currentQuizMode == QuizMode.EXAM;
+        if (exam && SystemClock.elapsedRealtime() - currentQuestionStartMs < 400L) {
+            return;
+        }
         FirQuestion q = selectedQuestions.get(currentIndex);
         long durationMs = SystemClock.elapsedRealtime() - currentQuestionStartMs;
         long timestampMs = System.currentTimeMillis();
 
-        highlightAnswerOptions(-1, q.correctIndex, false);
+        if (!exam) {
+            highlightAnswerOptions(-1, q.correctIndex, false);
+        }
 
         results.add(new AnswerResult(
                 q.comunidad,
@@ -463,6 +515,7 @@ public class MainActivity extends AppCompatActivity {
                 false,
                 status
         ));
+        examSelectedIndices.add(-1);
 
         questionProgressDbHelper.saveLatestProgress(
                 q.comunidad,
@@ -472,6 +525,10 @@ public class MainActivity extends AppCompatActivity {
                 durationMs,
                 timestampMs
         );
+        if (exam) {
+            moveToNextQuestion();
+            return;
+        }
         maybeShowStreakAchievement(status);
 
         setOptionsEnabled(false);
@@ -641,6 +698,10 @@ public class MainActivity extends AppCompatActivity {
         timerRunning = false;
         handler.removeCallbacks(timerRunnable);
         lastElapsedMs = SystemClock.elapsedRealtime() - startTimeMs;
+        boolean exam = currentQuizMode == QuizMode.EXAM;
+        if (exam) {
+            lastElapsedMs = Math.min(lastElapsedMs, examLimitMs);
+        }
         PointsStore.addPoints(this, score);
         int totalPoints = PointsStore.getPoints(this);
 
@@ -659,6 +720,9 @@ public class MainActivity extends AppCompatActivity {
         List<AppDatabaseHelper.Badge> postExamBadges = new ArrayList<>();
         boolean firstSimulationOfToday = false;
         if (results.size() == selectedQuestions.size()) {
+            if (currentQuizMode == QuizMode.DAILY) {
+                saveDailyResult(netas);
+            }
             firstSimulationOfToday = !appDatabaseHelper.hasCompletedSimulacroToday();
             appDatabaseHelper.saveExamAttempt(
                     examStartEpochMs, lastElapsedMs,
@@ -679,8 +743,24 @@ public class MainActivity extends AppCompatActivity {
         resultLayout.setVisibility(View.VISIBLE);
         scoreText.setText(score + "/" + selectedQuestions.size());
         netasText.setText(String.format(Locale.getDefault(), "NOTA: %.2f", netas));
-        finalTimeText.setText("Tiempo: " + formatElapsed(lastElapsedMs));
+        finalTimeText.setText("Tiempo: " + formatElapsed(lastElapsedMs)
+                + (exam ? " de " + formatElapsed(examLimitMs) : ""));
         earnedPointsText.setText("Has ganado " + score + " puntos. Total: " + totalPoints);
+
+        if (exam) {
+            resultTitle.setText(examTimedOut ? "Tiempo agotado" : "Resultado del simulacro");
+            anotherSimulationButton.setVisibility(View.GONE);
+            buildExamReview();
+            examReviewContainer.setVisibility(View.VISIBLE);
+        } else {
+            resultTitle.setText("Resultado");
+            anotherSimulationButton.setVisibility(View.VISIBLE);
+            examReviewContainer.removeAllViews();
+            examReviewContainer.setVisibility(View.GONE);
+        }
+        if (rootScrollView != null) {
+            rootScrollView.scrollTo(0, 0);
+        }
     }
 
     private void showFirstSimulationOfDayDialog(Runnable onDismiss) {
@@ -777,6 +857,206 @@ public class MainActivity extends AppCompatActivity {
             if (badgeId.equals(b.id)) {
                 target.add(b);
                 break;
+            }
+        }
+    }
+
+    private void applyExamUiRestrictions() {
+        boolean exam = currentQuizMode == QuizMode.EXAM;
+        pauseQuizButton.setVisibility(exam ? View.GONE : View.VISIBLE);
+        copyPromptButton.setVisibility(exam ? View.GONE : View.VISIBLE);
+    }
+
+    private Map<String, Map<String, List<FirQuestion>>> loadExamCatalog() {
+        Map<String, Map<String, List<FirQuestion>>> catalog = new LinkedHashMap<>();
+        try {
+            for (FirQuestionsDbHelper.QuestionRecord r : firQuestionsDbHelper.loadAllQuestionsUnfiltered()) {
+                Map<String, List<FirQuestion>> years = catalog.get(r.comunidad);
+                if (years == null) {
+                    years = new LinkedHashMap<>();
+                    catalog.put(r.comunidad, years);
+                }
+                List<FirQuestion> exam = years.get(r.year);
+                if (exam == null) {
+                    exam = new ArrayList<>();
+                    years.put(r.year, exam);
+                }
+                exam.add(new FirQuestion(r.comunidad, r.year, r.questionNumber, r.statement, r.options, r.correctIndex));
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Error cargando base de preguntas: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return new LinkedHashMap<>();
+        }
+        for (Map<String, List<FirQuestion>> years : catalog.values()) {
+            for (List<FirQuestion> exam : years.values()) {
+                Collections.sort(exam, (a, b) -> Integer.compare(parseIntOrZero(a.questionNumber), parseIntOrZero(b.questionNumber)));
+            }
+        }
+        return catalog;
+    }
+
+    private static int parseIntOrZero(String value) {
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private void showExamCommunityMenu() {
+        Map<String, Map<String, List<FirQuestion>>> catalog = loadExamCatalog();
+        if (catalog.isEmpty()) {
+            Toast.makeText(this, "No hay exámenes disponibles.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        final List<String> communities = new ArrayList<>(catalog.keySet());
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(
+                this, android.R.layout.simple_list_item_1, communities) {
+            @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                TextView row = (TextView) super.getView(position, convertView, parent);
+                String name = communities.get(position);
+                row.setText(name);
+                row.setCompoundDrawablePadding(dpToPx(14));
+                android.graphics.drawable.Drawable flag = loadFlagDrawable(name);
+                if (flag != null) {
+                    int height = dpToPx(26);
+                    int w = flag.getIntrinsicWidth();
+                    int h = flag.getIntrinsicHeight();
+                    int width = (w > 0 && h > 0) ? Math.round(height * (w / (float) h)) : dpToPx(38);
+                    flag.setBounds(0, 0, width, height);
+                    row.setCompoundDrawablesRelative(flag, null, null, null);
+                } else {
+                    row.setCompoundDrawablesRelative(null, null, null, null);
+                }
+                return row;
+            }
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("SIMULACRO: elige comunidad")
+                .setAdapter(adapter, (dialog, which) -> showExamYearMenu(catalog, communities.get(which)))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private android.graphics.drawable.Drawable loadFlagDrawable(String comunidad) {
+        String slug = java.text.Normalizer.normalize(comunidad, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
+        int resId = getResources().getIdentifier("flag_" + slug, "drawable", getPackageName());
+        return resId == 0 ? null : ContextCompat.getDrawable(this, resId);
+    }
+
+    private void showExamYearMenu(Map<String, Map<String, List<FirQuestion>>> catalog, String comunidad) {
+        Map<String, List<FirQuestion>> years = catalog.get(comunidad);
+        if (years == null || years.isEmpty()) {
+            return;
+        }
+        final List<String> yearKeys = new ArrayList<>(years.keySet());
+        Collections.sort(yearKeys, (a, b) -> Integer.compare(parseIntOrZero(a), parseIntOrZero(b)));
+        String[] labels = new String[yearKeys.size()];
+        for (int i = 0; i < labels.length; i++) {
+            labels[i] = "Año " + yearKeys.get(i) + "  (" + years.get(yearKeys.get(i)).size() + " preguntas)";
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(comunidad + ": elige examen")
+                .setItems(labels, (dialog, which) -> {
+                    String year = yearKeys.get(which);
+                    confirmStartExam(catalog, comunidad, year, years.get(year));
+                })
+                .setNegativeButton("Atrás", (dialog, which) -> showExamCommunityMenu())
+                .show();
+    }
+
+    private void confirmStartExam(Map<String, Map<String, List<FirQuestion>>> catalog, String comunidad,
+                                  String year, List<FirQuestion> questions) {
+        final int minutes = (int) Math.round(questions.size() * 1.25);
+        new AlertDialog.Builder(this)
+                .setTitle("¿Estás preparado?")
+                .setMessage(comunidad + " · Año " + year + " · " + questions.size() + " preguntas\n\n"
+                        + "Necesitarás " + minutes + " minutos para completar el examen.\n\n"
+                        + "El tiempo es regresivo: si se agota, el simulacro termina aunque esté incompleto. "
+                        + "No sabrás si aciertas o fallas hasta el final.")
+                .setNegativeButton("Atrás", (dialog, which) -> showExamYearMenu(catalog, comunidad))
+                .setPositiveButton("Empezar", (dialog, which) -> startExam(questions, minutes))
+                .show();
+    }
+
+    private void startExam(List<FirQuestion> questions, int minutes) {
+        clearPausedQuiz();
+        currentQuizMode = QuizMode.EXAM;
+        applyBackgroundForMode(QuizMode.EXAM);
+        selectedQuestions = new ArrayList<>(questions);
+        examLimitMs = minutes * 60_000L;
+        launchQuiz();
+    }
+
+    private TextView createReviewText(String text, int sp, int color, boolean bold, int topMarginDp) {
+        TextView view = new TextView(this);
+        view.setText(text);
+        view.setTextSize(sp);
+        view.setTextColor(color);
+        if (bold) {
+            view.setTypeface(view.getTypeface(), android.graphics.Typeface.BOLD);
+        }
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.topMargin = dpToPx(topMarginDp);
+        view.setLayoutParams(params);
+        return view;
+    }
+
+    private void buildExamReview() {
+        final int green = Color.parseColor("#2E7D32");
+        final int red = Color.parseColor("#C62828");
+        final int gray = Color.parseColor("#757575");
+        final int body = Color.parseColor("#4A4A4A");
+
+        examReviewContainer.removeAllViews();
+        examReviewContainer.addView(createReviewText("Revisión del examen", 20, Color.parseColor("#2B2B2B"), true, 0));
+
+        for (int i = 0; i < selectedQuestions.size(); i++) {
+            FirQuestion q = selectedQuestions.get(i);
+            boolean answered = i < examSelectedIndices.size();
+            int selected = answered ? examSelectedIndices.get(i) : -1;
+
+            String verdict;
+            int verdictColor;
+            if (!answered) {
+                verdict = "Sin responder";
+                verdictColor = gray;
+            } else if (selected < 0) {
+                verdict = "Dejada en blanco";
+                verdictColor = gray;
+            } else if (selected == q.correctIndex) {
+                verdict = "Acertada";
+                verdictColor = green;
+            } else {
+                verdict = "Fallada";
+                verdictColor = red;
+            }
+
+            examReviewContainer.addView(createReviewText((i + 1) + ". " + q.statement, 15, Color.parseColor("#2B2B2B"), true, 20));
+            examReviewContainer.addView(createReviewText(verdict, 14, verdictColor, true, 4));
+            for (int j = 0; j < q.options.size(); j++) {
+                StringBuilder line = new StringBuilder();
+                line.append((char) ('A' + j)).append(") ").append(q.options.get(j));
+                int color = body;
+                boolean isCorrect = j == q.correctIndex;
+                boolean isSelected = j == selected;
+                if (isCorrect) {
+                    color = green;
+                    line.append("  ✓ correcta");
+                    if (isSelected) line.append(" (tu respuesta)");
+                } else if (isSelected) {
+                    color = red;
+                    line.append("  ✗ tu respuesta");
+                }
+                examReviewContainer.addView(createReviewText(line.toString(), 14, color, isCorrect || isSelected, 4));
             }
         }
     }
@@ -892,6 +1172,13 @@ public class MainActivity extends AppCompatActivity {
             boolean nextVisible = json.optBoolean("nextVisible", false);
 
             results.clear();
+            examSelectedIndices.clear();
+            JSONArray storedIndices = json.optJSONArray("selectedIndices");
+            if (storedIndices != null) {
+                for (int i = 0; i < storedIndices.length(); i++) {
+                    examSelectedIndices.add(storedIndices.getInt(i));
+                }
+            }
             JSONArray storedResults = json.optJSONArray("results");
             if (storedResults != null) {
                 for (int i = 0; i < storedResults.length(); i++) {
@@ -917,6 +1204,7 @@ public class MainActivity extends AppCompatActivity {
             resultLayout.setVisibility(View.GONE);
             quizLayout.setVisibility(View.VISIBLE);
             applyBackgroundForMode(currentQuizMode);
+            applyExamUiRestrictions();
             showQuestion();
             currentQuestionStartMs = SystemClock.elapsedRealtime() - currentQuestionElapsedMs;
 
@@ -966,19 +1254,7 @@ public class MainActivity extends AppCompatActivity {
         return questions;
     }
 
-    private void savePausedQuiz() throws Exception {
-        JSONObject json = new JSONObject();
-        json.put("quizMode", currentQuizMode.name());
-        json.put("currentIndex", currentIndex);
-        json.put("score", score);
-        json.put("examStartEpochMs", examStartEpochMs);
-        json.put("elapsedMs", Math.max(0L, SystemClock.elapsedRealtime() - startTimeMs));
-        json.put("currentQuestionElapsedMs", Math.max(0L, SystemClock.elapsedRealtime() - currentQuestionStartMs));
-        json.put("selectedTickIndex", selectedTickIndex);
-        json.put("feedbackVisible", feedbackText.getVisibility() == View.VISIBLE);
-        json.put("feedbackText", feedbackText.getText() == null ? "" : feedbackText.getText().toString());
-        json.put("nextVisible", nextButton.getVisibility() == View.VISIBLE);
-
+    private JSONArray questionsToJson() throws Exception {
         JSONArray questionsArray = new JSONArray();
         for (FirQuestion question : selectedQuestions) {
             JSONObject questionJson = new JSONObject();
@@ -995,7 +1271,86 @@ public class MainActivity extends AppCompatActivity {
             questionJson.put("options", optionsArray);
             questionsArray.put(questionJson);
         }
-        json.put("selectedQuestions", questionsArray);
+        return questionsArray;
+    }
+
+    private SharedPreferences getDailyResultPrefs() {
+        return getApplicationContext().getSharedPreferences(DAILY_RESULT_PREFS, MODE_PRIVATE);
+    }
+
+    private void saveDailyResult(double netas) {
+        try {
+            JSONObject json = new JSONObject();
+            json.put("dayIndex", DailySimulacro.currentDayIndex());
+            json.put("score", score);
+            json.put("netas", netas);
+            json.put("elapsedMs", lastElapsedMs);
+            json.put("selectedQuestions", questionsToJson());
+            json.put("selectedIndices", new JSONArray(examSelectedIndices));
+            getDailyResultPrefs().edit().putString(DAILY_RESULT_KEY, json.toString()).apply();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private boolean showDailyResultIfAlreadyDone() {
+        String stored = getDailyResultPrefs().getString(DAILY_RESULT_KEY, null);
+        if (stored == null) {
+            return false;
+        }
+        try {
+            JSONObject json = new JSONObject(stored);
+            if (json.getLong("dayIndex") != DailySimulacro.currentDayIndex()) {
+                return false;
+            }
+            List<FirQuestion> questions = parsePausedQuestions(json.getJSONArray("selectedQuestions"));
+            JSONArray indices = json.getJSONArray("selectedIndices");
+            if (questions.isEmpty()) {
+                return false;
+            }
+
+            selectedQuestions = questions;
+            examSelectedIndices.clear();
+            for (int i = 0; i < indices.length(); i++) {
+                examSelectedIndices.add(indices.getInt(i));
+            }
+            currentQuizMode = QuizMode.DAILY;
+            applyBackgroundForMode(QuizMode.DAILY);
+
+            startLayout.setVisibility(View.GONE);
+            quizLayout.setVisibility(View.GONE);
+            resultLayout.setVisibility(View.VISIBLE);
+            resultTitle.setText("Simulacro del día " + DailySimulacro.currentDayLabel());
+            scoreText.setText(json.getInt("score") + "/" + questions.size());
+            netasText.setText(String.format(Locale.getDefault(), "NOTA: %.2f", json.getDouble("netas")));
+            finalTimeText.setText("Tiempo: " + formatElapsed(json.optLong("elapsedMs", 0L)));
+            earnedPointsText.setText("Ya has hecho el simulacro de hoy. Vuelve mañana para el siguiente.");
+            anotherSimulationButton.setVisibility(View.VISIBLE);
+            buildExamReview();
+            examReviewContainer.setVisibility(View.VISIBLE);
+            if (rootScrollView != null) {
+                rootScrollView.scrollTo(0, 0);
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void savePausedQuiz() throws Exception {
+        JSONObject json = new JSONObject();
+        json.put("quizMode", currentQuizMode.name());
+        json.put("currentIndex", currentIndex);
+        json.put("score", score);
+        json.put("examStartEpochMs", examStartEpochMs);
+        json.put("elapsedMs", Math.max(0L, SystemClock.elapsedRealtime() - startTimeMs));
+        json.put("currentQuestionElapsedMs", Math.max(0L, SystemClock.elapsedRealtime() - currentQuestionStartMs));
+        json.put("selectedTickIndex", selectedTickIndex);
+        json.put("feedbackVisible", feedbackText.getVisibility() == View.VISIBLE);
+        json.put("feedbackText", feedbackText.getText() == null ? "" : feedbackText.getText().toString());
+        json.put("nextVisible", nextButton.getVisibility() == View.VISIBLE);
+
+        json.put("selectedQuestions", questionsToJson());
+        json.put("selectedIndices", new JSONArray(examSelectedIndices));
 
         JSONArray resultsArray = new JSONArray();
         for (AnswerResult result : results) {
@@ -1053,6 +1408,7 @@ public class MainActivity extends AppCompatActivity {
         currentIndex = 0;
         score = 0;
         results.clear();
+        examSelectedIndices.clear();
         selectedTickIndex = -1;
         syncingTickSelection = false;
         feedbackText.setVisibility(View.GONE);
@@ -1336,7 +1692,8 @@ public class MainActivity extends AppCompatActivity {
         FAILURES(R.drawable.bg_mode_failures),
         DOUBTS(R.drawable.bg_mode_doubts),
         NEW(R.drawable.bg_mode_new),
-        DAILY(R.drawable.bg_mode_all);
+        DAILY(R.drawable.bg_mode_all),
+        EXAM(R.drawable.bg_mode_all);
 
         final int backgroundResId;
 

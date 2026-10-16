@@ -81,6 +81,17 @@
                 android:textSize="20sp" />
 
             <Button
+                android:id="@+id/examButton"
+                android:layout_width="220dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/button_menu_item"
+                android:text="SIMULACRO"
+                android:textAllCaps="false"
+                android:textColor="@color/ink"
+                android:textSize="20sp" />
+
+            <Button
                 android:id="@+id/resumePausedButton"
                 android:layout_width="220dp"
                 android:layout_height="wrap_content"
@@ -374,6 +385,14 @@
                 android:text="Volver al menú principal"
                 android:textAllCaps="false"
                 android:textColor="@color/ink" />
+
+            <LinearLayout
+                android:id="@+id/examReviewContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="vertical"
+                android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
 
