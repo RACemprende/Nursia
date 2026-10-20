@@ -68,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
     private Button examButton;
     private TextView resultTitle;
     private LinearLayout examReviewContainer;
+    private LinearLayout examComparisonContainer;
     private Button resumePausedButton;
     private Button redeemButton;
     private Button failuresButton;
@@ -93,6 +94,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView earnedPointsText;
     private Button anotherSimulationButton;
     private Button restartButton;
+    private Button reviewAnswersButton;
     private Button copyPromptButton;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -221,6 +223,7 @@ public class MainActivity extends AppCompatActivity {
         examButton = findViewById(R.id.examButton);
         resultTitle = findViewById(R.id.resultTitle);
         examReviewContainer = findViewById(R.id.examReviewContainer);
+        examComparisonContainer = findViewById(R.id.examComparisonContainer);
         resumePausedButton = findViewById(R.id.resumePausedButton);
         redeemButton = findViewById(R.id.redeemButton);
         failuresButton = findViewById(R.id.failuresButton);
@@ -246,6 +249,7 @@ public class MainActivity extends AppCompatActivity {
         earnedPointsText = findViewById(R.id.earnedPointsText);
         anotherSimulationButton = findViewById(R.id.anotherSimulationButton);
         restartButton = findViewById(R.id.restartButton);
+        reviewAnswersButton = findViewById(R.id.reviewAnswersButton);
         copyPromptButton = findViewById(R.id.copyPromptButton);
     }
 
@@ -282,6 +286,19 @@ public class MainActivity extends AppCompatActivity {
         exitQuizButton.setOnClickListener(v -> confirmExitQuiz());
         pauseQuizButton.setOnClickListener(v -> pauseQuiz());
         restartButton.setOnClickListener(v -> showStartScreen());
+        reviewAnswersButton.setOnClickListener(v -> {
+            boolean show = examReviewContainer.getVisibility() != View.VISIBLE;
+            examReviewContainer.setVisibility(show ? View.VISIBLE : View.GONE);
+            reviewAnswersButton.setText(show ? "Ocultar mis respuestas" : "Repasar mis respuestas");
+            if (show && rootScrollView != null) {
+                rootScrollView.post(() -> {
+                    android.graphics.Rect r = new android.graphics.Rect();
+                    examReviewContainer.getDrawingRect(r);
+                    rootScrollView.offsetDescendantRectToMyCoords(examReviewContainer, r);
+                    rootScrollView.smoothScrollTo(0, r.top);
+                });
+            }
+        });
         copyPromptButton.setOnClickListener(v -> copyQuestionPromptToClipboard());
         anotherSimulationButton.setOnClickListener(v ->
                 startSimulation(null, "No hay preguntas disponibles para empezar.", QuizMode.ALL)
@@ -704,9 +721,13 @@ public class MainActivity extends AppCompatActivity {
         }
         PointsStore.addPoints(this, score);
         int totalPoints = PointsStore.getPoints(this);
+        int gradedScore = scoredCorrectCount();
+        int gradedTotal = scoredQuestionCount();
+        int gradedLimit = Math.min(gradedTotal, results.size());
 
         int acertadas = 0, falladas = 0, dudaPrimera = 0, dudaSegunda = 0, dudaFallada = 0, vacias = 0;
-        for (AnswerResult r : results) {
+        for (int i = 0; i < gradedLimit; i++) {
+            AnswerResult r = results.get(i);
             switch (r.estado) {
                 case "Acertada":    acertadas++;    break;
                 case "Fallada":     falladas++;     break;
@@ -741,7 +762,7 @@ public class MainActivity extends AppCompatActivity {
 
         quizLayout.setVisibility(View.GONE);
         resultLayout.setVisibility(View.VISIBLE);
-        scoreText.setText(score + "/" + selectedQuestions.size());
+        scoreText.setText(gradedScore + "/" + gradedTotal);
         netasText.setText(String.format(Locale.getDefault(), "NOTA: %.2f", netas));
         finalTimeText.setText("Tiempo: " + formatElapsed(lastElapsedMs)
                 + (exam ? " de " + formatElapsed(examLimitMs) : ""));
@@ -750,17 +771,55 @@ public class MainActivity extends AppCompatActivity {
         if (exam) {
             resultTitle.setText(examTimedOut ? "Tiempo agotado" : "Resultado del simulacro");
             anotherSimulationButton.setVisibility(View.GONE);
+            buildExamComparison(netas);
             buildExamReview();
-            examReviewContainer.setVisibility(View.VISIBLE);
+            examReviewContainer.setVisibility(View.GONE);
+            reviewAnswersButton.setText("Repasar mis respuestas");
+            reviewAnswersButton.setVisibility(View.VISIBLE);
         } else {
             resultTitle.setText("Resultado");
+            reviewAnswersButton.setVisibility(View.GONE);
             anotherSimulationButton.setVisibility(View.VISIBLE);
+            examComparisonContainer.removeAllViews();
+            examComparisonContainer.setVisibility(View.GONE);
             examReviewContainer.removeAllViews();
             examReviewContainer.setVisibility(View.GONE);
         }
         if (rootScrollView != null) {
             rootScrollView.scrollTo(0, 0);
         }
+    }
+
+    private void buildExamComparison(double netas) {
+        examComparisonContainer.removeAllViews();
+        examComparisonContainer.setVisibility(View.GONE);
+        if (selectedQuestions.isEmpty()) {
+            return;
+        }
+        FirQuestion first = selectedQuestions.get(0);
+        ExamScoreStats stats = ExamScoreStats.load(this, first.comunidad, first.year);
+        if (stats == null) {
+            return;
+        }
+        int rank = stats.rankOf(netas);
+        int top = stats.topPercent(netas);
+        int total = stats.scores.length;
+
+        examComparisonContainer.addView(createReviewText("Comparación con los presentados", 20, Color.parseColor("#2B2B2B"), true, 0));
+        examComparisonContainer.addView(createReviewText(
+                String.format(Locale.getDefault(), "Habrías quedado el %d de %d", rank, total),
+                17, Color.parseColor("#2B2B2B"), true, 10));
+        examComparisonContainer.addView(createReviewText(
+                String.format(Locale.getDefault(), "Estarías en el Top %d%%", top),
+                15, Color.parseColor("#5a5852"), false, 2));
+
+        HistogramView histogram = new HistogramView(this);
+        histogram.setData(stats.scores, netas);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.topMargin = (int) (12 * getResources().getDisplayMetrics().density);
+        examComparisonContainer.addView(histogram, params);
+        examComparisonContainer.setVisibility(View.VISIBLE);
     }
 
     private void showFirstSimulationOfDayDialog(Runnable onDismiss) {
@@ -958,7 +1017,8 @@ public class MainActivity extends AppCompatActivity {
         Collections.sort(yearKeys, (a, b) -> Integer.compare(parseIntOrZero(a), parseIntOrZero(b)));
         String[] labels = new String[yearKeys.size()];
         for (int i = 0; i < labels.length; i++) {
-            labels[i] = "Año " + yearKeys.get(i) + "  (" + years.get(yearKeys.get(i)).size() + " preguntas)";
+            labels[i] = "Año " + yearKeys.get(i) + "  (" + years.get(yearKeys.get(i)).size() + " preguntas)"
+                    + (ExamScoreStats.isAvailable(this, comunidad, yearKeys.get(i)) ? "  📊 con comparación" : "");
         }
         new AlertDialog.Builder(this)
                 .setTitle(comunidad + ": elige examen")
@@ -973,12 +1033,19 @@ public class MainActivity extends AppCompatActivity {
     private void confirmStartExam(Map<String, Map<String, List<FirQuestion>>> catalog, String comunidad,
                                   String year, List<FirQuestion> questions) {
         final int minutes = (int) Math.round(questions.size() * 1.25);
+        final int reserves = Math.min(ExamReserves.get(this, comunidad, year), questions.size() - 1);
         new AlertDialog.Builder(this)
                 .setTitle("¿Estás preparado?")
                 .setMessage(comunidad + " · Año " + year + " · " + questions.size() + " preguntas\n\n"
+                        + (reserves > 0
+                        ? "Las últimas " + reserves + " son de reserva y no cuentan para la nota.\n\n"
+                        : "")
                         + "Necesitarás " + minutes + " minutos para completar el examen.\n\n"
                         + "El tiempo es regresivo: si se agota, el simulacro termina aunque esté incompleto. "
-                        + "No sabrás si aciertas o fallas hasta el final.")
+                        + "No sabrás si aciertas o fallas hasta el final."
+                        + (ExamScoreStats.isAvailable(this, comunidad, year)
+                        ? "\n\n📊 Al terminar verás cómo habrías quedado frente a los que se presentaron ese año."
+                        : ""))
                 .setNegativeButton("Atrás", (dialog, which) -> showExamYearMenu(catalog, comunidad))
                 .setPositiveButton("Empezar", (dialog, which) -> startExam(questions, minutes))
                 .show();
@@ -1041,6 +1108,9 @@ public class MainActivity extends AppCompatActivity {
             }
 
             examReviewContainer.addView(createReviewText((i + 1) + ". " + q.statement, 15, Color.parseColor("#2B2B2B"), true, 20));
+            if (i >= scoredQuestionCount()) {
+                verdict += " · RESERVA (no puntúa)";
+            }
             examReviewContainer.addView(createReviewText(verdict, 14, verdictColor, true, 4));
             for (int j = 0; j < q.options.size(); j++) {
                 StringBuilder line = new StringBuilder();
@@ -1327,6 +1397,7 @@ public class MainActivity extends AppCompatActivity {
             anotherSimulationButton.setVisibility(View.VISIBLE);
             buildExamReview();
             examReviewContainer.setVisibility(View.VISIBLE);
+            reviewAnswersButton.setVisibility(View.GONE);
             if (rootScrollView != null) {
                 rootScrollView.scrollTo(0, 0);
             }
@@ -1417,18 +1488,48 @@ public class MainActivity extends AppCompatActivity {
         optionTickBoxes.clear();
     }
 
+    private int examReserveCount() {
+        if (currentQuizMode != QuizMode.EXAM || selectedQuestions.isEmpty()) {
+            return 0;
+        }
+        FirQuestion first = selectedQuestions.get(0);
+        int reserves = ExamReserves.get(this, first.comunidad, first.year);
+        return Math.min(reserves, selectedQuestions.size() - 1);
+    }
+
+    private int scoredQuestionCount() {
+        return selectedQuestions.size() - examReserveCount();
+    }
+
+    private int scoredCorrectCount() {
+        if (currentQuizMode != QuizMode.EXAM) {
+            return score;
+        }
+        int limit = Math.min(scoredQuestionCount(), results.size());
+        int correct = 0;
+        for (int i = 0; i < limit; i++) {
+            if (results.get(i).correct) {
+                correct++;
+            }
+        }
+        return correct;
+    }
+
     private double calculateNetas() {
         if (selectedQuestions.isEmpty()) {
             return 0.0;
         }
+        int scored = scoredQuestionCount();
+        int limit = Math.min(scored, results.size());
         int fallos = 0;
-        for (AnswerResult result : results) {
+        for (int i = 0; i < limit; i++) {
+            AnswerResult result = results.get(i);
             if (!result.correct && !"Vacia".equals(result.selectedAnswer)) {
                 fallos++;
             }
         }
-        // Nota sobre 10: (aciertos - fallos/3) * 10 / N, donde N = numero de preguntas del simulacro
-        return (score - (double) fallos / WRONG_ANSWERS_PER_PENALTY) * 10.0 / selectedQuestions.size();
+        // Nota sobre 10: (aciertos - fallos/3) * 10 / N, donde N = preguntas puntuables (sin reservas)
+        return (scoredCorrectCount() - (double) fallos / WRONG_ANSWERS_PER_PENALTY) * 10.0 / scored;
     }
 
     private String formatElapsed(long ms) {

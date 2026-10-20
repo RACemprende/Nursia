@@ -1,0 +1,1 @@
+﻿Pon aqui los CSV de notas reales: notas_<comunidad>_<año>.csv (ej: notas_andalucia_2019.csv, notas_castilla_y_leon_2022.csv). Una nota por linea (escala 0-10), con o sin cabecera 'nota'.

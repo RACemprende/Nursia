@@ -377,6 +377,17 @@
                 android:textColor="@color/ink" />
 
             <Button
+                android:id="@+id/reviewAnswersButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_soft_action"
+                android:text="Repasar mis respuestas"
+                android:textAllCaps="false"
+                android:textColor="@color/ink"
+                android:visibility="gone" />
+
+            <Button
                 android:id="@+id/restartButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -385,6 +396,14 @@
                 android:text="Volver al menú principal"
                 android:textAllCaps="false"
                 android:textColor="@color/ink" />
+
+            <LinearLayout
+                android:id="@+id/examComparisonContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="vertical"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/examReviewContainer"

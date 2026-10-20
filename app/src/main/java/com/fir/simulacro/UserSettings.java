@@ -14,6 +14,7 @@ public final class UserSettings {
     private static final String PREFS_NAME = "fir_user_settings";
     private static final String KEY_REMINDER_HOUR = "reminder_hour";
     private static final String KEY_REMINDER_MINUTE = "reminder_minute";
+    private static final String KEY_EXAM_DATE = "exam_date";
     private static final String KEY_QUIZ_QUESTION_COUNT = "quiz_question_count";
     private static final String KEY_ACCURACY_THRESHOLD_PERCENT = "accuracy_threshold_percent";
     private static final String KEY_THEORY_COMMUNITIES = "theory_communities";
@@ -63,6 +64,92 @@ public final class UserSettings {
                 .putInt(KEY_REMINDER_MINUTE, clamp(minute, 0, 59))
                 .apply();
         new AppDatabaseHelper(context).markCloudDirty();
+    }
+
+    /** Fecha del examen como "yyyy-MM-dd", o null si no hay ninguna. */
+    public static String getExamDate(Context context) {
+        String value = getPrefs(context).getString(KEY_EXAM_DATE, null);
+        return parseExamDay(value) == null ? null : value;
+    }
+
+    public static void saveExamDate(Context context, String isoDate) {
+        SharedPreferences.Editor editor = getPrefs(context).edit();
+        if (parseExamDay(isoDate) == null) {
+            editor.remove(KEY_EXAM_DATE);
+        } else {
+            editor.putString(KEY_EXAM_DATE, isoDate);
+        }
+        editor.apply();
+        new AppDatabaseHelper(context).markCloudDirty();
+    }
+
+    public static String formatExamDate(int year, int month1to12, int day) {
+        return String.format(java.util.Locale.US, "%04d-%02d-%02d", year, month1to12, day);
+    }
+
+    public static String formatExamDateForDisplay(String isoDate) {
+        int[] parts = parseExamDay(isoDate);
+        if (parts == null) {
+            return "";
+        }
+        return String.format(java.util.Locale.getDefault(), "%02d/%02d/%04d", parts[2], parts[1], parts[0]);
+    }
+
+    /** Dias que faltan para el examen (0 = hoy), o null si no hay fecha o ya paso. */
+    public static Integer getDaysUntilExam(Context context) {
+        int[] parts = parseExamDay(getPrefs(context).getString(KEY_EXAM_DATE, null));
+        if (parts == null) {
+            return null;
+        }
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        long today = dayNumber(now.get(java.util.Calendar.YEAR), now.get(java.util.Calendar.MONTH) + 1,
+                now.get(java.util.Calendar.DAY_OF_MONTH));
+        long exam = dayNumber(parts[0], parts[1], parts[2]);
+        long diff = exam - today;
+        return diff < 0 ? null : (int) diff;
+    }
+
+    /** Texto para el recordatorio, o null si no hay fecha de examen vigente. */
+    public static String getExamCountdownText(Context context) {
+        Integer days = getDaysUntilExam(context);
+        if (days == null) {
+            return null;
+        }
+        if (days == 0) {
+            return "¡El examen es hoy!";
+        }
+        if (days == 1) {
+            return "Solo queda 1 día para el examen.";
+        }
+        return "Solo quedan " + days + " días para el examen.";
+    }
+
+    private static long dayNumber(int year, int month1to12, int day) {
+        java.util.Calendar utc = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+        utc.clear();
+        utc.set(year, month1to12 - 1, day);
+        return utc.getTimeInMillis() / 86_400_000L;
+    }
+
+    private static int[] parseExamDay(String value) {
+        if (value == null) {
+            return null;
+        }
+        String[] parts = value.trim().split("-");
+        if (parts.length != 3) {
+            return null;
+        }
+        try {
+            int year = Integer.parseInt(parts[0]);
+            int month = Integer.parseInt(parts[1]);
+            int day = Integer.parseInt(parts[2]);
+            if (year < 2000 || month < 1 || month > 12 || day < 1 || day > 31) {
+                return null;
+            }
+            return new int[]{year, month, day};
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     public static void saveQuizQuestionCount(Context context, int count) {
@@ -133,6 +220,8 @@ public final class UserSettings {
             json.put(KEY_REMINDER_MINUTE, getReminderMinute(context));
             json.put(KEY_QUIZ_QUESTION_COUNT, getQuizQuestionCount(context));
             json.put(KEY_ACCURACY_THRESHOLD_PERCENT, getAccuracyThresholdPercent(context));
+            String examDate = getExamDate(context);
+            json.put(KEY_EXAM_DATE, examDate == null ? "" : examDate);
             putCommunitiesIfPresent(json, KEY_THEORY_COMMUNITIES, getTheoryCommunitiesFilter(context));
             putCommunitiesIfPresent(json, KEY_LEGISLATION_COMMUNITIES, getLegislationCommunitiesFilter(context));
         } catch (Exception ignored) {
@@ -147,6 +236,9 @@ public final class UserSettings {
         saveReminderTime(context, json.optInt(KEY_REMINDER_HOUR, DEFAULT_REMINDER_HOUR), json.optInt(KEY_REMINDER_MINUTE, DEFAULT_REMINDER_MINUTE));
         saveQuizQuestionCount(context, json.optInt(KEY_QUIZ_QUESTION_COUNT, DEFAULT_QUIZ_QUESTION_COUNT));
         saveAccuracyThresholdPercent(context, json.optInt(KEY_ACCURACY_THRESHOLD_PERCENT, DEFAULT_ACCURACY_THRESHOLD_PERCENT));
+        if (json.has(KEY_EXAM_DATE)) {
+            saveExamDate(context, json.optString(KEY_EXAM_DATE, ""));
+        }
         Set<String> theoryCommunities = readCommunitiesArray(json, KEY_THEORY_COMMUNITIES);
         if (theoryCommunities != null) {
             saveTheoryCommunities(context, theoryCommunities);

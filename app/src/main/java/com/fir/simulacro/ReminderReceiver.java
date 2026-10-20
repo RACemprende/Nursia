@@ -40,8 +40,12 @@ public class ReminderReceiver extends BroadcastReceiver {
         } else {
             message = "Llevas " + streak + " días seguidos. ¡Haz tu simulacro para mantener la racha!";
         }
+        String countdown = UserSettings.getExamCountdownText(context);
+        if (countdown != null) {
+            message += " " + countdown;
+        }
 
-        // Intent para abrir la app al tocar la notificación
+        // Abrir la app al tocar la notificación
         Intent openApp = new Intent(context, MainActivity.class);
         openApp.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;

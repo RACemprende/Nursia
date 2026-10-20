@@ -41,6 +41,8 @@ public class SettingsActivity extends AppCompatActivity {
     private Button selectLegislationCommunitiesButton;
     private Button saveButton;
     private Button cancelButton;
+    private Button examDateButton;
+    private String pendingExamDate;
     private AppDatabaseHelper appDatabaseHelper;
 
     @Override
@@ -79,6 +81,7 @@ public class SettingsActivity extends AppCompatActivity {
         selectLegislationCommunitiesButton = findViewById(R.id.selectLegislationCommunitiesButton);
         saveButton = findViewById(R.id.saveSettingsButton);
         cancelButton = findViewById(R.id.cancelSettingsButton);
+        examDateButton = findViewById(R.id.examDateButton);
     }
 
     private void setupControls() {
@@ -122,12 +125,46 @@ public class SettingsActivity extends AppCompatActivity {
         thresholdValueText.setText(thresholdPercent + "%");
 
         refreshCommunityButtons();
+
+        pendingExamDate = UserSettings.getExamDate(this);
+        refreshExamDateButton();
+    }
+
+    private void refreshExamDateButton() {
+        examDateButton.setText(pendingExamDate == null
+                ? "Sin fecha (toca para elegir)"
+                : UserSettings.formatExamDateForDisplay(pendingExamDate));
+    }
+
+    private void showExamDatePicker() {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        if (pendingExamDate != null) {
+            String[] p = pendingExamDate.split("-");
+            cal.set(Integer.parseInt(p[0]), Integer.parseInt(p[1]) - 1, Integer.parseInt(p[2]));
+        }
+        android.app.DatePickerDialog dialog = new android.app.DatePickerDialog(
+                this,
+                (view, year, month, day) -> {
+                    pendingExamDate = UserSettings.formatExamDate(year, month + 1, day);
+                    refreshExamDateButton();
+                },
+                cal.get(java.util.Calendar.YEAR),
+                cal.get(java.util.Calendar.MONTH),
+                cal.get(java.util.Calendar.DAY_OF_MONTH)
+        );
+        dialog.getDatePicker().setMinDate(System.currentTimeMillis() - 1000L);
+        dialog.setButton(android.content.DialogInterface.BUTTON_NEUTRAL, "Quitar fecha", (d, which) -> {
+            pendingExamDate = null;
+            refreshExamDateButton();
+        });
+        dialog.show();
     }
 
     private void setupListeners() {
         openPermissionSettingsButton.setOnClickListener(v -> openRelevantPermissionSettings());
         testNotificationButton.setOnClickListener(v -> testNotificationNow());
         onboardingButton.setOnClickListener(v -> showOnboardingAgain());
+        examDateButton.setOnClickListener(v -> showExamDatePicker());
         aboutButton.setOnClickListener(v -> openAbout());
         selectTheoryCommunitiesButton.setOnClickListener(v -> showCommunityPicker(false));
         selectLegislationCommunitiesButton.setOnClickListener(v -> showCommunityPicker(true));
@@ -304,6 +341,7 @@ public class SettingsActivity extends AppCompatActivity {
         UserSettings.saveReminderTime(this, hour, minute);
         UserSettings.saveQuizQuestionCount(this, count);
         UserSettings.saveAccuracyThresholdPercent(this, thresholdPercent);
+        UserSettings.saveExamDate(this, pendingExamDate);
         NotificationScheduler.scheduleDailyReminder(this);
 
         Toast.makeText(this, "Ajustes guardados", Toast.LENGTH_SHORT).show();
