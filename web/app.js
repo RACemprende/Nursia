@@ -772,8 +772,8 @@ function communityPicker(title, legislation, initial) {
     el: h("div", {},
       h("h2", {}, title),
       h("div", { class: "row" },
-        h("button", { class: "btn small", type: "button", onclick: () => setAll(true) }, "Todas"),
-        h("button", { class: "btn small", type: "button", onclick: () => setAll(false) }, "Ninguna"),
+        h("button", { class: "btn small", type: "button", onclick: () => setAll(true) }, "INCLUIR TODAS"),
+        h("button", { class: "btn small", type: "button", onclick: () => setAll(false) }, "QUITAR TODAS"),
         summary
       ),
       h("div", { class: "checks" }, checks)

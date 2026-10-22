@@ -271,14 +271,14 @@ public class SettingsActivity extends AppCompatActivity {
                 ? "Comunidades (Legislación)"
                 : "Comunidades (Teoría)";
 
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setMultiChoiceItems(
                         allCommunities.toArray(new String[0]),
                         checked,
-                        (dialog, which, isChecked) -> checked[which] = isChecked
+                        (d, which, isChecked) -> checked[which] = isChecked
                 )
-                .setPositiveButton("Guardar", (dialog, which) -> {
+                .setPositiveButton("Guardar", (d, which) -> {
                     Set<String> selected = new HashSet<>();
                     for (int i = 0; i < allCommunities.size(); i++) {
                         if (checked[i]) {
@@ -292,17 +292,19 @@ public class SettingsActivity extends AppCompatActivity {
                     }
                     refreshCommunityButtons();
                 })
-                .setNeutralButton("Todas", (dialog, which) -> {
-                    Set<String> all = new HashSet<>(allCommunities);
-                    if (forLegislation) {
-                        UserSettings.saveLegislationCommunities(this, all);
-                    } else {
-                        UserSettings.saveTheoryCommunities(this, all);
-                    }
-                    refreshCommunityButtons();
-                })
-                .setNegativeButton("Cancelar", null)
+                .setNeutralButton("INCLUIR TODAS", null)
+                .setNegativeButton("QUITAR TODAS", null)
                 .show();
+
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> setAllChecked(dialog, checked, true));
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> setAllChecked(dialog, checked, false));
+    }
+
+    private void setAllChecked(AlertDialog dialog, boolean[] checked, boolean value) {
+        for (int i = 0; i < checked.length; i++) {
+            checked[i] = value;
+            dialog.getListView().setItemChecked(i, value);
+        }
     }
 
     private void refreshCommunityButtons() {
