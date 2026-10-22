@@ -76,6 +76,16 @@ public class OnboardingActivity extends AppCompatActivity {
                 R.drawable.streak_positive_5_img
         ));
         pages.add(new OnboardingPage(
+                "Simulacro del día",
+                "Cada día hay un simulacro de 10 preguntas que es el mismo para todo el mundo. Compara tu resultado con tus amigos y compártelo en una imagen. Solo puedes hacerlo una vez al día.",
+                R.drawable.help_simulacro_dia
+        ));
+        pages.add(new OnboardingPage(
+                "SIMULACRO",
+                "Haz un examen completo de una comunidad y un año, con tiempo real y sin ver las respuestas hasta el final. Después podrás compararte con los que se presentaron ese año (si hay datos disponibles) y repasar tus respuestas.",
+                R.drawable.help_simulacro
+        ));
+        pages.add(new OnboardingPage(
                 "Insignias y logros",
                 "Desbloquea insignias por rachas, simulacros completados y otros logros. ¡Juega todos los días!",
                 R.drawable.badge_exams_1_img

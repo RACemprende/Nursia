@@ -47,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String PAUSED_QUIZ_PREFS = "paused_quiz_prefs";
     private static final String PAUSED_QUIZ_KEY = "paused_quiz_json";
     private static final String PREF_QUIZ_TUTORIAL_SEEN = "quiz_tutorial_seen";
+    private static final String PREF_DAILY_INTRO_SEEN = "daily_intro_seen";
     private static final String DAILY_RESULT_PREFS = "daily_result_prefs";
     private static final String DAILY_RESULT_KEY = "daily_result_json";
     private static final int REAL_EXAM_QUESTION_COUNT = 200;
@@ -59,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
             R.drawable.option_button_neutral
     };
 
-    private View rootScrollView;
+    private android.widget.ScrollView rootScrollView;
     private View startLayout;
     private View quizLayout;
     private View resultLayout;
@@ -85,6 +86,8 @@ public class MainActivity extends AppCompatActivity {
     private Button blankButton;
     private Button exitQuizButton;
     private Button pauseQuizButton;
+    private Button finishNowButton;
+    private Button shareExamButton;
     private TextView feedbackText;
     private Button nextButton;
     private TextView pointsText;
@@ -95,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
     private Button anotherSimulationButton;
     private Button restartButton;
     private Button reviewAnswersButton;
+    private Button shareDailyButton;
     private Button copyPromptButton;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -240,6 +244,8 @@ public class MainActivity extends AppCompatActivity {
         blankButton = findViewById(R.id.blankButton);
         exitQuizButton = findViewById(R.id.exitQuizButton);
         pauseQuizButton = findViewById(R.id.pauseQuizButton);
+        finishNowButton = findViewById(R.id.finishNowButton);
+        shareExamButton = findViewById(R.id.shareExamButton);
         feedbackText = findViewById(R.id.feedbackText);
         nextButton = findViewById(R.id.nextButton);
         pointsText = findViewById(R.id.pointsText);
@@ -250,6 +256,7 @@ public class MainActivity extends AppCompatActivity {
         anotherSimulationButton = findViewById(R.id.anotherSimulationButton);
         restartButton = findViewById(R.id.restartButton);
         reviewAnswersButton = findViewById(R.id.reviewAnswersButton);
+        shareDailyButton = findViewById(R.id.shareDailyButton);
         copyPromptButton = findViewById(R.id.copyPromptButton);
     }
 
@@ -285,7 +292,10 @@ public class MainActivity extends AppCompatActivity {
         blankButton.setOnClickListener(v -> onQuestionMarkedWithoutAnswer("Vacia"));
         exitQuizButton.setOnClickListener(v -> confirmExitQuiz());
         pauseQuizButton.setOnClickListener(v -> pauseQuiz());
+        finishNowButton.setOnClickListener(v -> confirmFinishExamNow());
+        shareExamButton.setOnClickListener(v -> shareExamResult());
         restartButton.setOnClickListener(v -> showStartScreen());
+        shareDailyButton.setOnClickListener(v -> shareDailyResult());
         reviewAnswersButton.setOnClickListener(v -> {
             boolean show = examReviewContainer.getVisibility() != View.VISIBLE;
             examReviewContainer.setVisibility(show ? View.VISIBLE : View.GONE);
@@ -381,7 +391,9 @@ public class MainActivity extends AppCompatActivity {
         // Tutorial primera vez
         boolean tutorialSeen = getSharedPreferences(PAUSED_QUIZ_PREFS, MODE_PRIVATE)
                 .getBoolean(PREF_QUIZ_TUTORIAL_SEEN, false);
-        if (!tutorialSeen) {
+        boolean dailyIntroSeen = getSharedPreferences(PAUSED_QUIZ_PREFS, MODE_PRIVATE)
+                .getBoolean(PREF_DAILY_INTRO_SEEN, false);
+        if (!tutorialSeen || (currentQuizMode == QuizMode.DAILY && !dailyIntroSeen)) {
             handler.postDelayed(this::showFirstQuizTutorial, 600);
         }
     }
@@ -778,21 +790,61 @@ public class MainActivity extends AppCompatActivity {
             reviewAnswersButton.setVisibility(View.VISIBLE);
         } else {
             resultTitle.setText("Resultado");
-            reviewAnswersButton.setVisibility(View.GONE);
             anotherSimulationButton.setVisibility(View.VISIBLE);
             examComparisonContainer.removeAllViews();
             examComparisonContainer.setVisibility(View.GONE);
-            examReviewContainer.removeAllViews();
+            shareExamButton.setVisibility(View.GONE);
+            buildExamReview();
             examReviewContainer.setVisibility(View.GONE);
+            reviewAnswersButton.setText("Repasar mis respuestas");
+            reviewAnswersButton.setVisibility(View.VISIBLE);
         }
+        shareDailyButton.setVisibility(
+                currentQuizMode == QuizMode.DAILY && examSelectedIndices.size() == selectedQuestions.size()
+                        ? View.VISIBLE : View.GONE);
         if (rootScrollView != null) {
             rootScrollView.scrollTo(0, 0);
         }
     }
 
+    private void shareDailyResult() {
+        int n = selectedQuestions.size();
+        if (n == 0 || examSelectedIndices.size() != n) {
+            Toast.makeText(this, "No hay resultado que compartir", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int[] selected = new int[n];
+        int[] correct = new int[n];
+        String[] sources = new String[n];
+        for (int i = 0; i < n; i++) {
+            selected[i] = examSelectedIndices.get(i);
+            FirQuestion q = selectedQuestions.get(i);
+            correct[i] = q.correctIndex;
+            sources[i] = ((q.comunidad == null ? "" : q.comunidad) + " " + q.year).trim();
+        }
+        DailyShareHelper.share(this, DailySimulacro.currentDayLabel(), selected, correct, sources);
+    }
+
+    private void shareExamResult() {
+        if (selectedQuestions.isEmpty()) {
+            return;
+        }
+        FirQuestion first = selectedQuestions.get(0);
+        ExamScoreStats stats = ExamScoreStats.load(this, first.comunidad, first.year);
+        if (stats == null) {
+            Toast.makeText(this, "No hay resultado que compartir", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String date = new java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new java.util.Date());
+        ExamShareHelper.share(this, first.comunidad, first.year, date,
+                scoredCorrectCount(), scoredQuestionCount(), calculateNetas(),
+                formatElapsed(lastElapsedMs), stats);
+    }
+
     private void buildExamComparison(double netas) {
         examComparisonContainer.removeAllViews();
         examComparisonContainer.setVisibility(View.GONE);
+        shareExamButton.setVisibility(View.GONE);
         if (selectedQuestions.isEmpty()) {
             return;
         }
@@ -801,6 +853,7 @@ public class MainActivity extends AppCompatActivity {
         if (stats == null) {
             return;
         }
+        shareExamButton.setVisibility(View.VISIBLE);
         int rank = stats.rankOf(netas);
         int top = stats.topPercent(netas);
         int total = stats.scores.length;
@@ -924,6 +977,33 @@ public class MainActivity extends AppCompatActivity {
         boolean exam = currentQuizMode == QuizMode.EXAM;
         pauseQuizButton.setVisibility(exam ? View.GONE : View.VISIBLE);
         copyPromptButton.setVisibility(exam ? View.GONE : View.VISIBLE);
+        finishNowButton.setVisibility(exam ? View.VISIBLE : View.GONE);
+    }
+
+    private void confirmFinishExamNow() {
+        if (!isQuizActive() || currentQuizMode != QuizMode.EXAM) {
+            return;
+        }
+        int remaining = selectedQuestions.size() - results.size();
+        new AlertDialog.Builder(this)
+                .setTitle("Terminar el simulacro")
+                .setMessage("Las " + remaining + " preguntas sin responder (incluida la actual si no la has respondido) "
+                        + "se dejarán en blanco y verás tu resultado. ¿Seguro que quieres terminar ya?")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Terminar", (dialog, which) -> {
+                    if (!isQuizActive() || currentQuizMode != QuizMode.EXAM) {
+                        return;
+                    }
+                    while (results.size() < selectedQuestions.size()) {
+                        FirQuestion q = selectedQuestions.get(results.size());
+                        results.add(new AnswerResult(
+                                q.comunidad, q.year, q.questionNumber, q.statement,
+                                "Vacia", false, "Vacia"));
+                        examSelectedIndices.add(-1);
+                    }
+                    finishSimulation();
+                })
+                .show();
     }
 
     private Map<String, Map<String, List<FirQuestion>>> loadExamCatalog() {
@@ -1398,6 +1478,10 @@ public class MainActivity extends AppCompatActivity {
             buildExamReview();
             examReviewContainer.setVisibility(View.VISIBLE);
             reviewAnswersButton.setVisibility(View.GONE);
+            shareDailyButton.setVisibility(View.VISIBLE);
+            shareExamButton.setVisibility(View.GONE);
+            examComparisonContainer.removeAllViews();
+            examComparisonContainer.setVisibility(View.GONE);
             if (rootScrollView != null) {
                 rootScrollView.scrollTo(0, 0);
             }
@@ -1839,6 +1923,20 @@ public class MainActivity extends AppCompatActivity {
 
     private void showFirstQuizTutorial() {
         List<TutorialStep> steps = new ArrayList<>();
+        SharedPreferences tutorialPrefs = getSharedPreferences(PAUSED_QUIZ_PREFS, MODE_PRIVATE);
+        if (currentQuizMode == QuizMode.DAILY && !tutorialPrefs.getBoolean(PREF_DAILY_INTRO_SEEN, false)) {
+            tutorialPrefs.edit().putBoolean(PREF_DAILY_INTRO_SEEN, true).apply();
+            steps.add(new TutorialStep(
+                    "📅", "Simulacro del día",
+                    "Son 10 preguntas, y son las mismas para todo el mundo ese día.\n\n" +
+                    "¡Pícate y compite con tus amigos y compañeros! Al terminar podrás compartir tu resultado.",
+                    0
+            ));
+        }
+        if (tutorialPrefs.getBoolean(PREF_QUIZ_TUTORIAL_SEEN, false)) {
+            showTutorialStep(steps, 0);
+            return;
+        }
         steps.add(new TutorialStep(
                 "\uD83D\uDCDD", "Cómo responder",
                 "Pulsa el botón con la opción que creas correcta.\n\n" +

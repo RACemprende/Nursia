@@ -213,6 +213,18 @@
                     android:textColor="@color/ink" />
 
                 <Button
+                    android:id="@+id/finishNowButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/button_soft_action"
+                    android:text="Terminar ya"
+                    android:textAllCaps="false"
+                    android:textColor="@color/ink"
+                    android:visibility="gone" />
+
+                <Button
                     android:id="@+id/nextButton"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
@@ -383,6 +395,28 @@
                 android:layout_marginTop="10dp"
                 android:background="@drawable/button_soft_action"
                 android:text="Repasar mis respuestas"
+                android:textAllCaps="false"
+                android:textColor="@color/ink"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/shareDailyButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_soft_action"
+                android:text="📤 Compartir"
+                android:textAllCaps="false"
+                android:textColor="@color/ink"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/shareExamButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_soft_action"
+                android:text="📤 Compartir"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
                 android:visibility="gone" />
