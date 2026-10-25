@@ -70,8 +70,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView resultTitle;
     private LinearLayout examReviewContainer;
     private LinearLayout examComparisonContainer;
-    private Button resumePausedButton;
     private Button redeemButton;
+    private Button resumePausedButton;
     private Button failuresButton;
     private Button doubtsButton;
     private Button newQuestionsButton;
@@ -79,6 +79,7 @@ public class MainActivity extends AppCompatActivity {
     private Button badgesButton;
     private View settingsButton;
     private TextView timerText;
+    private TextView pendingCountText;
     private TextView progressText;
     private TextView yearText;
     private TextView questionText;
@@ -228,8 +229,8 @@ public class MainActivity extends AppCompatActivity {
         resultTitle = findViewById(R.id.resultTitle);
         examReviewContainer = findViewById(R.id.examReviewContainer);
         examComparisonContainer = findViewById(R.id.examComparisonContainer);
-        resumePausedButton = findViewById(R.id.resumePausedButton);
         redeemButton = findViewById(R.id.redeemButton);
+        resumePausedButton = findViewById(R.id.resumePausedButton);
         failuresButton = findViewById(R.id.failuresButton);
         doubtsButton = findViewById(R.id.doubtsButton);
         newQuestionsButton = findViewById(R.id.newQuestionsButton);
@@ -237,6 +238,7 @@ public class MainActivity extends AppCompatActivity {
         badgesButton = findViewById(R.id.badgesButton);
         settingsButton = findViewById(R.id.settingsButton);
         timerText = findViewById(R.id.timerText);
+        pendingCountText = findViewById(R.id.pendingCountText);
         progressText = findViewById(R.id.progressText);
         yearText = findViewById(R.id.yearText);
         questionText = findViewById(R.id.questionText);
@@ -262,10 +264,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupListeners() {
         startButton.setOnClickListener(v -> startSimulation(null, "No hay preguntas disponibles para empezar.", QuizMode.ALL));
-        resumePausedButton.setOnClickListener(v -> resumePausedQuiz());
         dailyButton.setOnClickListener(v -> startDailySimulation());
         examButton.setOnClickListener(v -> showExamCommunityMenu());
         redeemButton.setOnClickListener(v -> startActivity(new Intent(this, RewardsActivity.class)));
+        resumePausedButton.setOnClickListener(v -> resumePausedQuiz());
         failuresButton.setOnClickListener(v -> startSimulation(
                 createStateList("Fallada", "Duda_Fallada"),
                 "No hay preguntas en Fallada o Duda_Fallada.",
@@ -375,6 +377,7 @@ public class MainActivity extends AppCompatActivity {
         feedbackText.setVisibility(View.GONE);
         nextButton.setVisibility(View.GONE);
         applyExamUiRestrictions();
+        updatePendingCountUi();
 
         startTimeMs = SystemClock.elapsedRealtime();
         examStartEpochMs = System.currentTimeMillis();
@@ -407,6 +410,23 @@ public class MainActivity extends AppCompatActivity {
         feedbackText.setVisibility(View.GONE);
         nextButton.setVisibility(View.GONE);
         showQuestion();
+    }
+
+    private void updatePendingCountUi() {
+        if (pendingCountText == null) {
+            return;
+        }
+        if (currentQuizMode == QuizMode.FAILURES) {
+            int total = loadQuestionsFromDatabase(createStateList("Fallada", "Duda_Fallada")).size();
+            pendingCountText.setText("Fallos pendientes en total: " + total);
+            pendingCountText.setVisibility(View.VISIBLE);
+        } else if (currentQuizMode == QuizMode.DOUBTS) {
+            int total = loadQuestionsFromDatabase(createStateList("Duda_Primera", "Duda_Segunda")).size();
+            pendingCountText.setText("Dudas pendientes en total: " + total);
+            pendingCountText.setVisibility(View.VISIBLE);
+        } else {
+            pendingCountText.setVisibility(View.GONE);
+        }
     }
 
     private void showQuestion() {
@@ -988,9 +1008,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyExamUiRestrictions() {
         boolean exam = currentQuizMode == QuizMode.EXAM;
-        pauseQuizButton.setVisibility(exam ? View.GONE : View.VISIBLE);
         copyPromptButton.setVisibility(exam ? View.GONE : View.VISIBLE);
         finishNowButton.setVisibility(exam ? View.VISIBLE : View.GONE);
+        pauseQuizButton.setVisibility(exam ? View.GONE : View.VISIBLE);
     }
 
     private void confirmFinishExamNow() {
@@ -1330,8 +1350,6 @@ public class MainActivity extends AppCompatActivity {
             lastElapsedMs = Math.max(0L, json.optLong("elapsedMs", 0L));
             long currentQuestionElapsedMs = Math.max(0L, json.optLong("currentQuestionElapsedMs", 0L));
             int restoredTickIndex = json.optInt("selectedTickIndex", -1);
-            boolean feedbackVisible = json.optBoolean("feedbackVisible", false);
-            String restoredFeedbackText = json.optString("feedbackText", "");
             boolean nextVisible = json.optBoolean("nextVisible", false);
 
             results.clear();
@@ -1368,6 +1386,7 @@ public class MainActivity extends AppCompatActivity {
             quizLayout.setVisibility(View.VISIBLE);
             applyBackgroundForMode(currentQuizMode);
             applyExamUiRestrictions();
+            updatePendingCountUi();
             showQuestion();
             currentQuestionStartMs = SystemClock.elapsedRealtime() - currentQuestionElapsedMs;
 

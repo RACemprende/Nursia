@@ -286,6 +286,16 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/pendingCountText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text=""
+                android:textSize="14sp"
+                android:textColor="@color/muted"
+                android:visibility="gone" />
+
+            <TextView
                 android:id="@+id/progressText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
