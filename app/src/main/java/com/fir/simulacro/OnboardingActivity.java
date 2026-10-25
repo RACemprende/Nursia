@@ -76,14 +76,24 @@ public class OnboardingActivity extends AppCompatActivity {
                 R.drawable.streak_positive_5_img
         ));
         pages.add(new OnboardingPage(
-                "Simulacro del día",
-                "Cada día hay un simulacro de 10 preguntas que es el mismo para todo el mundo. Compara tu resultado con tus amigos y compártelo en una imagen. Solo puedes hacerlo una vez al día.",
+                "Reto diario",
+                "Cada día hay un reto de 10 preguntas que es el mismo para todo el mundo. Compara tu resultado con tus amigos y compártelo en una imagen. Solo puedes hacerlo una vez al día.",
                 R.drawable.help_simulacro_dia
         ));
         pages.add(new OnboardingPage(
-                "SIMULACRO",
+                "EXAMENES",
                 "Haz un examen completo de una comunidad y un año, con tiempo real y sin ver las respuestas hasta el final. Después podrás compararte con los que se presentaron ese año (si hay datos disponibles) y repasar tus respuestas.",
                 R.drawable.help_simulacro
+        ));
+        pages.add(new OnboardingPage(
+                "Elige tus comunidades",
+                "En Ajustes puedes escoger de qué comunidades quieres que salgan las preguntas de los tests, por separado para Teoría y para Legislación.",
+                R.drawable.help_comunidades
+        ));
+        pages.add(new OnboardingPage(
+                "Pregunta a la IA",
+                "¿No entiendes una pregunta? Pulsa \"Preguntar a IA\" y se copiará al portapapeles un prompt con la pregunta y sus opciones. Pégalo en ChatGPT, Gemini o la IA que prefieras para obtener una explicación detallada.",
+                R.drawable.help_ia
         ));
         pages.add(new OnboardingPage(
                 "Insignias y logros",

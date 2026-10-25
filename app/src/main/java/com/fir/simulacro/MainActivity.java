@@ -362,7 +362,7 @@ public class MainActivity extends AppCompatActivity {
         for (int index : DailySimulacro.pickIndices(bank.size(), DailySimulacro.currentDayIndex())) {
             selectedQuestions.add(bank.get(index));
         }
-        Toast.makeText(this, "Simulacro del día " + DailySimulacro.currentDayLabel(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Reto diario " + DailySimulacro.currentDayLabel(), Toast.LENGTH_SHORT).show();
         launchQuiz();
     }
 
@@ -781,7 +781,7 @@ public class MainActivity extends AppCompatActivity {
         earnedPointsText.setText("Has ganado " + score + " puntos. Total: " + totalPoints);
 
         if (exam) {
-            resultTitle.setText(examTimedOut ? "Tiempo agotado" : "Resultado del simulacro");
+            resultTitle.setText(examTimedOut ? "Tiempo agotado" : "Resultado del examen");
             anotherSimulationButton.setVisibility(View.GONE);
             buildExamComparison(netas);
             buildExamReview();
@@ -986,7 +986,7 @@ public class MainActivity extends AppCompatActivity {
         }
         int remaining = selectedQuestions.size() - results.size();
         new AlertDialog.Builder(this)
-                .setTitle("Terminar el simulacro")
+                .setTitle("Terminar el examen")
                 .setMessage("Las " + remaining + " preguntas sin responder (incluida la actual si no la has respondido) "
                         + "se dejarán en blanco y verás tu resultado. ¿Seguro que quieres terminar ya?")
                 .setNegativeButton("Cancelar", null)
@@ -1072,7 +1072,7 @@ public class MainActivity extends AppCompatActivity {
             }
         };
         new AlertDialog.Builder(this)
-                .setTitle("SIMULACRO: elige comunidad")
+                .setTitle("EXAMENES: elige comunidad")
                 .setAdapter(adapter, (dialog, which) -> showExamYearMenu(catalog, communities.get(which)))
                 .setNegativeButton("Cancelar", null)
                 .show();
@@ -1121,7 +1121,7 @@ public class MainActivity extends AppCompatActivity {
                         ? "Las últimas " + reserves + " son de reserva y no cuentan para la nota.\n\n"
                         : "")
                         + "Necesitarás " + minutes + " minutos para completar el examen.\n\n"
-                        + "El tiempo es regresivo: si se agota, el simulacro termina aunque esté incompleto. "
+                        + "El tiempo es regresivo: si se agota, el examen termina aunque esté incompleto. "
                         + "No sabrás si aciertas o fallas hasta el final."
                         + (ExamScoreStats.isAvailable(this, comunidad, year)
                         ? "\n\n📊 Al terminar verás cómo habrías quedado frente a los que se presentaron ese año."
@@ -1469,11 +1469,11 @@ public class MainActivity extends AppCompatActivity {
             startLayout.setVisibility(View.GONE);
             quizLayout.setVisibility(View.GONE);
             resultLayout.setVisibility(View.VISIBLE);
-            resultTitle.setText("Simulacro del día " + DailySimulacro.currentDayLabel());
+            resultTitle.setText("Reto diario " + DailySimulacro.currentDayLabel());
             scoreText.setText(json.getInt("score") + "/" + questions.size());
             netasText.setText(String.format(Locale.getDefault(), "NOTA: %.2f", json.getDouble("netas")));
             finalTimeText.setText("Tiempo: " + formatElapsed(json.optLong("elapsedMs", 0L)));
-            earnedPointsText.setText("Ya has hecho el simulacro de hoy. Vuelve mañana para el siguiente.");
+            earnedPointsText.setText("Ya has hecho el reto de hoy. Vuelve mañana para el siguiente.");
             anotherSimulationButton.setVisibility(View.VISIBLE);
             buildExamReview();
             examReviewContainer.setVisibility(View.VISIBLE);
@@ -1630,6 +1630,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyBackgroundForMode(QuizMode mode) {
         if (rootScrollView != null) {
+            if (mode == QuizMode.HOME) {
+                rootScrollView.setBackground(new HomeBackgroundDrawable(this));
+                return;
+            }
             rootScrollView.setBackgroundResource(mode.backgroundResId);
             if (rootScrollView.getBackground() instanceof AnimationDrawable) {
                 AnimationDrawable animated = (AnimationDrawable) rootScrollView.getBackground();
@@ -1927,7 +1931,7 @@ public class MainActivity extends AppCompatActivity {
         if (currentQuizMode == QuizMode.DAILY && !tutorialPrefs.getBoolean(PREF_DAILY_INTRO_SEEN, false)) {
             tutorialPrefs.edit().putBoolean(PREF_DAILY_INTRO_SEEN, true).apply();
             steps.add(new TutorialStep(
-                    "📅", "Simulacro del día",
+                    "📅", "Reto diario",
                     "Son 10 preguntas, y son las mismas para todo el mundo ese día.\n\n" +
                     "¡Pícate y compite con tus amigos y compañeros! Al terminar podrás compartir tu resultado.",
                     0

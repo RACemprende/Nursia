@@ -44,7 +44,7 @@ final class DailyShareHelper {
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("image/png");
             intent.putExtra(Intent.EXTRA_STREAM, uri);
-            intent.putExtra(Intent.EXTRA_TEXT, "Mi SIMULACRO DEL DÍA del " + dateLabel + " en Nursia");
+            intent.putExtra(Intent.EXTRA_TEXT, "Mi RETO DIARIO del " + dateLabel + " en Nursia");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             activity.startActivity(Intent.createChooser(intent, "Compartir resultado"));
         } catch (Exception e) {
@@ -97,8 +97,8 @@ final class DailyShareHelper {
         paint.setColor(Color.WHITE);
         paint.setTextSize(112);
         paint.setShadowLayer(1, 6, 8, Color.argb(90, 38, 37, 30));
-        canvas.drawText("SIMULACRO", WIDTH / 2f, 220, paint);
-        canvas.drawText("DEL DÍA", WIDTH / 2f, 340, paint);
+        canvas.drawText("RETO", WIDTH / 2f, 220, paint);
+        canvas.drawText("DIARIO", WIDTH / 2f, 340, paint);
         paint.clearShadowLayer();
 
         paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));

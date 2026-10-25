@@ -25,7 +25,7 @@ public class NotificationScheduler {
                     "Recordatorio diario OPE ENFERMERIA",
                     NotificationManager.IMPORTANCE_DEFAULT
             );
-            channel.setDescription("Recuerda hacer tu simulacro diario OPE ENFERMERIA para no perder la racha");
+            channel.setDescription("Recuerda hacer tu reto diario OPE ENFERMERIA para no perder la racha");
             NotificationManager nm = ctx.getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(channel);
         }

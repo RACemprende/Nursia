@@ -45,7 +45,7 @@ final class ExamShareHelper {
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("image/png");
             intent.putExtra(Intent.EXTRA_STREAM, uri);
-            intent.putExtra(Intent.EXTRA_TEXT, "Mi SIMULACRO de " + comunidad + " " + year + " en Nursia");
+            intent.putExtra(Intent.EXTRA_TEXT, "Mi EXAMEN de " + comunidad + " " + year + " en Nursia");
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             activity.startActivity(Intent.createChooser(intent, "Compartir resultado"));
         } catch (Exception e) {
@@ -93,7 +93,7 @@ final class ExamShareHelper {
         paint.setColor(Color.WHITE);
         paint.setShadowLayer(1, 6, 8, Color.argb(90, 38, 37, 30));
         paint.setTextSize(112);
-        canvas.drawText("SIMULACRO", WIDTH / 2f, 220, paint);
+        canvas.drawText("EXAMEN", WIDTH / 2f, 220, paint);
         paint.setTextSize(112);
         drawFitted(canvas, paint, ("DE " + upperCom + " " + year).trim(), WIDTH / 2f, 340, WIDTH - 140, 40);
         paint.clearShadowLayer();

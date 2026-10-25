@@ -34,7 +34,7 @@ public class ReminderReceiver extends BroadcastReceiver {
         if (forceTest) {
             message = "Notificación de prueba enviada correctamente. Racha actual: " + streak + " días.";
         } else if (streak == 0) {
-            message = "¡Empieza tu racha hoy! Haz tu simulacro diario.";
+            message = "¡Empieza tu racha hoy! Haz tu reto diario.";
         } else if (streak == 1) {
             message = "Llevas 1 día de racha. ¡No la rompas hoy!";
         } else {

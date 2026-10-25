@@ -17,11 +17,12 @@
             android:id="@+id/startLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/pastel_panel"
-            android:gravity="center"
+            android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:padding="24dp"
-            android:paddingTop="40dp">
+            android:paddingStart="8dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="24dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -30,144 +31,182 @@
 
                 <ImageButton
                     android:id="@+id/settingsButton"
-                    android:layout_width="42dp"
-                    android:layout_height="42dp"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
                     android:background="@drawable/button_settings"
                     android:contentDescription="Ajustes"
-                    android:padding="8dp"
+                    android:padding="9dp"
                     android:src="@android:drawable/ic_menu_manage"
-                    android:tint="#6A4D80" />
+                    android:tint="@color/ink" />
             </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Simulacro OPE ENFERMERIA"
-                android:textSize="28sp"
+                android:layout_marginTop="4dp"
+                android:fontFamily="sans-serif-black"
+                android:text="Nursia"
+                android:textColor="@android:color/white"
+                android:textSize="44sp"
+                android:shadowColor="#5A26251E"
+                android:shadowDx="3"
+                android:shadowDy="4"
+                android:shadowRadius="1" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="Oposiciones de enfermería"
                 android:textColor="@color/ink"
-                android:letterSpacing="-0.02" />
+                android:textSize="20sp"
+                android:letterSpacing="0.04" />
 
             <TextView
                 android:id="@+id/pointsText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
+                android:background="@drawable/home_points_pill"
+                android:fontFamily="sans-serif-black"
+                android:paddingStart="22dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="22dp"
+                android:paddingBottom="8dp"
                 android:text="Puntos: 0"
-                android:textSize="20sp"
-                android:textColor="@color/body"
-                android:textStyle="bold" />
+                android:textColor="@color/ink"
+                android:textSize="18sp" />
 
             <Button
                 android:id="@+id/startButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="40dp"
-                android:background="@drawable/button_menu_item"
+                android:layout_marginTop="28dp"
+                android:background="@drawable/button_home_main"
+                android:fontFamily="sans-serif-black"
+                android:minHeight="62dp"
                 android:text="EMPEZAR"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp"
-                android:textStyle="bold" />
+                android:textSize="22sp" />
 
             <Button
                 android:id="@+id/dailyButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/button_menu_item"
-                android:text="SIMULACRO DEL DÍA"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/button_home_main"
+                android:fontFamily="sans-serif-black"
+                android:minHeight="62dp"
+                android:text="RETO DIARIO"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp" />
+                android:textSize="22sp" />
 
             <Button
                 android:id="@+id/examButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/button_menu_item"
-                android:text="SIMULACRO"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/button_home_main"
+                android:fontFamily="sans-serif-black"
+                android:minHeight="62dp"
+                android:text="EXAMENES"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp" />
+                android:textSize="22sp" />
 
             <Button
                 android:id="@+id/resumePausedButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/button_soft_action"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/button_home_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:minHeight="52dp"
                 android:text="REANUDAR PAUSA"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp"
+                android:textSize="17sp"
                 android:visibility="gone" />
 
             <Button
                 android:id="@+id/redeemButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/button_menu_item"
+                android:layout_marginTop="28dp"
+                android:background="@drawable/button_home_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:minHeight="52dp"
                 android:text="CANJEAR"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp" />
+                android:textSize="17sp" />
 
             <Button
                 android:id="@+id/failuresButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/button_menu_item"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_home_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:minHeight="52dp"
                 android:text="FALLOS"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp" />
+                android:textSize="17sp" />
 
             <Button
                 android:id="@+id/doubtsButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/button_menu_item"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_home_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:minHeight="52dp"
                 android:text="DUDAS"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp" />
+                android:textSize="17sp" />
 
             <Button
                 android:id="@+id/newQuestionsButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/button_menu_item"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_home_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:minHeight="52dp"
                 android:text="NUEVAS"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp" />
+                android:textSize="17sp" />
 
             <Button
                 android:id="@+id/statisticsButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/button_menu_item"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_home_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:minHeight="52dp"
                 android:text="ESTADISTICAS"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp" />
+                android:textSize="17sp" />
 
             <Button
                 android:id="@+id/badgesButton"
-                android:layout_width="220dp"
+                android:layout_width="300dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/button_menu_item"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_home_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:minHeight="52dp"
                 android:text="INSIGNIAS"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
-                android:textSize="20sp" />
+                android:textSize="17sp" />
         </LinearLayout>
 
         <LinearLayout
