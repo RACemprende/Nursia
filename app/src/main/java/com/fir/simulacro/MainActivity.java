@@ -426,6 +426,19 @@ public class MainActivity extends AppCompatActivity {
         optionButtons.clear();
         selectedTickIndex = -1;
         setActionButtonsEnabled(true);
+
+        TextView doubtHint = new TextView(this);
+        LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        hintParams.bottomMargin = dpToPx(4);
+        doubtHint.setLayoutParams(hintParams);
+        doubtHint.setText("Marca con ☑ si una opción te genera dudas");
+        doubtHint.setTextSize(12f);
+        doubtHint.setTextColor(Color.parseColor("#807d72"));
+        doubtHint.setPadding(dpToPx(4), 0, 0, 0);
+        optionsContainer.addView(doubtHint);
         for (int i = 0; i < q.options.size(); i++) {
             final int index = i;
             String option = q.options.get(i);
