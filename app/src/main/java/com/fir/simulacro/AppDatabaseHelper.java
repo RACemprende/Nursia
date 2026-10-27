@@ -35,6 +35,10 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
     private static final String QUESTIONS_CSV_ASSET = "enfermeria_examenes_combinado.csv";
     private static final String QUESTIONS_DATASET_VERSION = "enfermeria_combinado_v1";
     private static final String QUESTIONS_VIEW = "questions_full";
+    private static final String EIR_CSV_ASSET = "EIR_1993_2025.csv";
+    private static final String EIR_DATASET_VERSION = "eir_v3";
+    private static final String STATE_EIR_DATASET_VERSION = "eir_dataset_version";
+    public static final String EIR_COMMUNITY = "EIR";
 
     private static final String LEGACY_PROGRESS_DB_NAME = "fir_user_data.db";
     private static final String LEGACY_PREFS_NAME = "fir_simulacro_prefs";
@@ -113,6 +117,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
 
     private List<QuestionRecord> queryQuestions(SQLiteDatabase db, List<String> states, boolean applyCommunityFilter) {
         List<QuestionRecord> questions = new ArrayList<>();
+        boolean eirSource = UserSettings.isEirSource(context);
         Set<String> theoryCommunities = UserSettings.getTheoryCommunitiesFilter(context);
         Set<String> legislationCommunities = UserSettings.getLegislationCommunitiesFilter(context);
 
@@ -130,7 +135,8 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 .append(alias).append("option_2, ")
                 .append(alias).append("option_3, ")
                 .append(alias).append("option_4, ")
-                .append(alias).append("correct_option_number ")
+                .append(alias).append("correct_option_number, ")
+                .append(alias).append("option_5 ")
                 .append("FROM ").append(QUESTIONS_VIEW);
         if (withStates) {
             sql.append(" q JOIN ").append(TABLE_QUESTION_PROGRESS).append(" p ")
@@ -138,13 +144,14 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         } else {
             sql.append(" ");
         }
-        sql.append("WHERE ").append(alias).append("correct_option_number BETWEEN 1 AND 4");
+        sql.append("WHERE ").append(alias).append("correct_option_number BETWEEN 1 AND 5");
+        appendSourceFilter(sql, alias, eirSource);
         if (withStates) {
             String placeholders = TextUtils.join(",", Collections.nCopies(states.size(), "?"));
             sql.append(" AND p.estado IN (").append(placeholders).append(")");
             argsList.addAll(states);
         }
-        if (applyCommunityFilter) {
+        if (applyCommunityFilter && !eirSource) {
             appendCommunityFilter(sql, argsList, alias, theoryCommunities, legislationCommunities);
         }
         sql.append(" ORDER BY ").append(alias).append("comunidad, ")
@@ -160,6 +167,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 String option3 = trimToNull(cursor.getString(6));
                 String option4 = trimToNull(cursor.getString(7));
                 int correctOptionNumber = cursor.getInt(8);
+                String option5 = trimToNull(cursor.getString(9));
 
                 if (comunidad == null || statement == null || option1 == null || option2 == null || option3 == null || option4 == null) {
                     continue;
@@ -170,6 +178,9 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 options.add(option2);
                 options.add(option3);
                 options.add(option4);
+                if (option5 != null) {
+                    options.add(option5);
+                }
 
                 if (correctOptionNumber < 1 || correctOptionNumber > options.size()) {
                     continue;
@@ -187,6 +198,11 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         }
 
         return questions;
+    }
+
+    private void appendSourceFilter(StringBuilder sql, String tableAlias, boolean eirSource) {
+        sql.append(" AND ").append(tableAlias).append("comunidad ")
+                .append(eirSource ? "= '" : "!= '").append(EIR_COMMUNITY).append("'");
     }
 
     private void appendCommunityFilter(StringBuilder sql, List<String> args, String tableAlias,
@@ -236,12 +252,12 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         String[] args;
         if (forLegislation) {
             sql = "SELECT DISTINCT comunidad FROM " + QUESTIONS_VIEW +
-                    " WHERE TRIM(subject_name) = ? AND TRIM(COALESCE(comunidad, '')) != '' " +
+                    " WHERE TRIM(subject_name) = ? AND TRIM(COALESCE(comunidad, '')) != '' AND comunidad != '" + EIR_COMMUNITY + "' " +
                     " ORDER BY comunidad";
             args = new String[]{LEGISLATION_SUBJECT};
         } else {
             sql = "SELECT DISTINCT comunidad FROM " + QUESTIONS_VIEW +
-                    " WHERE (TRIM(subject_name) IS NULL OR TRIM(subject_name) != ?) AND TRIM(COALESCE(comunidad, '')) != '' " +
+                    " WHERE (TRIM(subject_name) IS NULL OR TRIM(subject_name) != ?) AND TRIM(COALESCE(comunidad, '')) != '' AND comunidad != '" + EIR_COMMUNITY + "' " +
                     " ORDER BY comunidad";
             args = new String[]{LEGISLATION_SUBJECT};
         }
@@ -634,6 +650,109 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
     }
 
     private void ensureQuestionDataset(SQLiteDatabase db) throws IOException {
+        ensureCommunityDataset(db);
+        ensureEirDataset(db);
+    }
+
+    private void ensureEirDataset(SQLiteDatabase db) throws IOException {
+        if (EIR_DATASET_VERSION.equals(getAppState(db, STATE_EIR_DATASET_VERSION)) && hasEirQuestions(db)) {
+            return;
+        }
+        db.beginTransaction();
+        try {
+            db.delete(TABLE_QUESTIONS, "comunidad = ?", new String[]{EIR_COMMUNITY});
+            db.delete(TABLE_QUESTION_PROGRESS, "comunidad = ?", new String[]{EIR_COMMUNITY});
+            importEirQuestionsFromCsv(db);
+            createQuestionIndexes(db);
+            seedPendingQuestionProgress(db);
+            setAppState(db, STATE_EIR_DATASET_VERSION, EIR_DATASET_VERSION);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    private boolean hasEirQuestions(SQLiteDatabase db) {
+        try (Cursor cursor = db.rawQuery(
+                "SELECT COUNT(*) FROM " + TABLE_QUESTIONS + " WHERE comunidad = ?",
+                new String[]{EIR_COMMUNITY}
+        )) {
+            return cursor.moveToFirst() && cursor.getInt(0) > 0;
+        }
+    }
+
+    private void importEirQuestionsFromCsv(SQLiteDatabase db) throws IOException {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(context.getAssets().open(EIR_CSV_ASSET), StandardCharsets.UTF_8)
+        )) {
+            String header = reader.readLine();
+            if (header == null) {
+                throw new IOException("El CSV de preguntas EIR está vacio.");
+            }
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (trimToNull(line) == null) {
+                    continue;
+                }
+
+                List<String> fields = CsvUtils.parseCsvLine(line);
+                if (fields.size() < 11) {
+                    continue;
+                }
+
+                int examYear;
+                int questionNumber;
+                String questionText;
+                String option1;
+                String option2;
+                String option3;
+                String option4;
+                try {
+                    examYear = parseRequiredInt(fields.get(0), "year");
+                    questionNumber = parseRequiredInt(fields.get(1), "numero");
+                    questionText = requireText(fields.get(2), "pregunta");
+                    option1 = requireText(fields.get(3), "opcion1");
+                    option2 = requireText(fields.get(4), "opcion2");
+                    option3 = requireText(fields.get(5), "opcion3");
+                    option4 = requireText(fields.get(6), "opcion4");
+                } catch (IOException | RuntimeException e) {
+                    continue;
+                }
+                String option5 = trimToNull(fields.get(7));
+                String correctOptionText = trimToNull(fields.get(9));
+                String subjectName = trimToNull(fields.get(10));
+
+                int correctOptionNumber = letterToOptionNumber(fields.get(8));
+                int optionCount = option5 == null ? 4 : 5;
+                if (correctOptionNumber < 1 || correctOptionNumber > optionCount) {
+                    continue;
+                }
+
+                ContentValues examValues = new ContentValues();
+                examValues.put("exam_year", examYear);
+                examValues.put("exam_name", "Examen " + examYear);
+                db.insertWithOnConflict(TABLE_EXAMS, null, examValues, SQLiteDatabase.CONFLICT_IGNORE);
+
+                ContentValues questionValues = new ContentValues();
+                questionValues.put("comunidad", EIR_COMMUNITY);
+                questionValues.put("exam_year", examYear);
+                questionValues.put("question_number", questionNumber);
+                questionValues.put("question_text", questionText);
+                questionValues.put("option_1", option1);
+                questionValues.put("option_2", option2);
+                questionValues.put("option_3", option3);
+                questionValues.put("option_4", option4);
+                questionValues.put("option_5", option5);
+                questionValues.put("correct_option_number", correctOptionNumber);
+                questionValues.put("correct_option_text", correctOptionText);
+                questionValues.put("subject_name", subjectName);
+                db.insertWithOnConflict(TABLE_QUESTIONS, null, questionValues, SQLiteDatabase.CONFLICT_IGNORE);
+            }
+        }
+    }
+
+    private void ensureCommunityDataset(SQLiteDatabase db) throws IOException {
         ensureQuestionSchema(db);
 
         String currentVersion = getAppState(db, STATE_QUESTIONS_DATASET_VERSION);
@@ -679,6 +798,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                         "option_2 TEXT NOT NULL, " +
                         "option_3 TEXT NOT NULL, " +
                         "option_4 TEXT NOT NULL, " +
+                        "option_5 TEXT, " +
                         "correct_option_number INTEGER NOT NULL, " +
                         "correct_option_text TEXT, " +
                         "subject_name TEXT, " +
@@ -686,6 +806,18 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                         "FOREIGN KEY (exam_year) REFERENCES " + TABLE_EXAMS + "(exam_year)" +
                         ")"
         );
+        boolean hasOption5 = false;
+        try (Cursor cursor = db.rawQuery("PRAGMA table_info(" + TABLE_QUESTIONS + ")", null)) {
+            while (cursor.moveToNext()) {
+                if ("option_5".equals(cursor.getString(cursor.getColumnIndexOrThrow("name")))) {
+                    hasOption5 = true;
+                    break;
+                }
+            }
+        }
+        if (!hasOption5) {
+            db.execSQL("ALTER TABLE " + TABLE_QUESTIONS + " ADD COLUMN option_5 TEXT");
+        }
     }
 
     private void createQuestionIndexes(SQLiteDatabase db) {
@@ -704,7 +836,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(
                 "CREATE VIEW " + QUESTIONS_VIEW + " AS " +
                         "SELECT q.comunidad, q.exam_year, q.question_number, q.question_text, " +
-                        "q.option_1, q.option_2, q.option_3, q.option_4, " +
+                        "q.option_1, q.option_2, q.option_3, q.option_4, q.option_5, " +
                         "q.correct_option_number, q.correct_option_text, q.subject_name " +
                         "FROM " + TABLE_QUESTIONS + " q"
         );
@@ -805,13 +937,13 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         String normalized = letter.trim().toUpperCase(Locale.ROOT);
         if (normalized.length() == 1) {
             char c = normalized.charAt(0);
-            if (c >= 'A' && c <= 'D') {
+            if (c >= 'A' && c <= 'E') {
                 return (c - 'A') + 1;
             }
         }
         try {
             int n = Integer.parseInt(normalized);
-            if (n >= 1 && n <= 4) return n;
+            if (n >= 1 && n <= 5) return n;
         } catch (NumberFormatException ignored) {}
         return -1;
     }
@@ -1666,11 +1798,15 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
                 .append("COALESCE(SUM(CASE WHEN p.estado IS NOT NULL AND p.estado != 'Pendiente' THEN 1 ELSE 0 END), 0) ")
                 .append("FROM ").append(QUESTIONS_VIEW).append(" q LEFT JOIN ").append(TABLE_QUESTION_PROGRESS).append(" p ")
                 .append("ON p.comunidad = q.comunidad AND p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT) ")
-                .append("WHERE q.correct_option_number BETWEEN 1 AND 4");
-        appendCommunityFilter(sql, args,
-                "q.",
-                UserSettings.getTheoryCommunitiesFilter(context),
-                UserSettings.getLegislationCommunitiesFilter(context));
+                .append("WHERE q.correct_option_number BETWEEN 1 AND 5");
+        boolean eirSource = UserSettings.isEirSource(context);
+        appendSourceFilter(sql, "q.", eirSource);
+        if (!eirSource) {
+            appendCommunityFilter(sql, args,
+                    "q.",
+                    UserSettings.getTheoryCommunitiesFilter(context),
+                    UserSettings.getLegislationCommunitiesFilter(context));
+        }
         try (Cursor c = db.rawQuery(sql.toString(), args.toArray(new String[0]))) {
             if (c.moveToFirst()) {
                 return new int[]{c.getInt(1), c.getInt(0)};

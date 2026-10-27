@@ -324,6 +324,17 @@
                 android:maxLines="9999"
                 android:ellipsize="none" />
 
+            <ImageView
+                android:id="@+id/questionImage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:adjustViewBounds="true"
+                android:background="@android:color/white"
+                android:contentDescription="Imagen de la pregunta"
+                android:scaleType="fitCenter"
+                android:visibility="gone" />
+
             <LinearLayout
                 android:id="@+id/optionsContainer"
                 android:layout_width="match_parent"

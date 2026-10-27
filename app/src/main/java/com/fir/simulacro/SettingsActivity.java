@@ -43,6 +43,8 @@ public class SettingsActivity extends AppCompatActivity {
     private Button cancelButton;
     private Button examDateButton;
     private String pendingExamDate;
+    private android.widget.RadioGroup questionSourceGroup;
+    private android.view.View communitiesSection;
     private AppDatabaseHelper appDatabaseHelper;
 
     @Override
@@ -82,6 +84,8 @@ public class SettingsActivity extends AppCompatActivity {
         saveButton = findViewById(R.id.saveSettingsButton);
         cancelButton = findViewById(R.id.cancelSettingsButton);
         examDateButton = findViewById(R.id.examDateButton);
+        questionSourceGroup = findViewById(R.id.questionSourceGroup);
+        communitiesSection = findViewById(R.id.communitiesSection);
     }
 
     private void setupControls() {
@@ -125,6 +129,13 @@ public class SettingsActivity extends AppCompatActivity {
         thresholdValueText.setText(thresholdPercent + "%");
 
         refreshCommunityButtons();
+
+        boolean eirSource = UserSettings.isEirSource(this);
+        questionSourceGroup.check(eirSource ? R.id.sourceEirRadio : R.id.sourceComunidadRadio);
+        communitiesSection.setVisibility(eirSource ? android.view.View.GONE : android.view.View.VISIBLE);
+        questionSourceGroup.setOnCheckedChangeListener((group, checkedId) ->
+                communitiesSection.setVisibility(checkedId == R.id.sourceEirRadio
+                        ? android.view.View.GONE : android.view.View.VISIBLE));
 
         pendingExamDate = UserSettings.getExamDate(this);
         refreshExamDateButton();
@@ -344,6 +355,7 @@ public class SettingsActivity extends AppCompatActivity {
         UserSettings.saveQuizQuestionCount(this, count);
         UserSettings.saveAccuracyThresholdPercent(this, thresholdPercent);
         UserSettings.saveExamDate(this, pendingExamDate);
+        UserSettings.saveEirSource(this, questionSourceGroup.getCheckedRadioButtonId() == R.id.sourceEirRadio);
         NotificationScheduler.scheduleDailyReminder(this);
 
         Toast.makeText(this, "Ajustes guardados", Toast.LENGTH_SHORT).show();

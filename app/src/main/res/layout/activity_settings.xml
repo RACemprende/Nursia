@@ -128,29 +128,66 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
-                android:text="Comunidades autónomas"
+                android:text="Origen de las preguntas"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/selectTheoryCommunitiesButton"
+            <RadioGroup
+                android:id="@+id/questionSourceGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/button_soft_action"
-                android:text="Teoría: Todas"
-                android:textAllCaps="false"
-                android:textColor="@color/ink" />
+                android:layout_marginTop="4dp"
+                android:orientation="vertical">
 
-            <Button
-                android:id="@+id/selectLegislationCommunitiesButton"
+                <RadioButton
+                    android:id="@+id/sourceComunidadRadio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Comunidades autónomas"
+                    android:textColor="@color/ink" />
+
+                <RadioButton
+                    android:id="@+id/sourceEirRadio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="EIR (todos los años, hasta 5 opciones)"
+                    android:textColor="@color/ink" />
+            </RadioGroup>
+
+            <LinearLayout
+                android:id="@+id/communitiesSection"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/button_soft_action"
-                android:text="Legislación: Todas"
-                android:textAllCaps="false"
-                android:textColor="@color/ink" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="Comunidades autónomas"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/selectTheoryCommunitiesButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/button_soft_action"
+                    android:text="Teoría: Todas"
+                    android:textAllCaps="false"
+                    android:textColor="@color/ink" />
+
+                <Button
+                    android:id="@+id/selectLegislationCommunitiesButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/button_soft_action"
+                    android:text="Legislación: Todas"
+                    android:textAllCaps="false"
+                    android:textColor="@color/ink" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/permissionStatusText"

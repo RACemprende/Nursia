@@ -83,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView progressText;
     private TextView yearText;
     private TextView questionText;
+    private ImageView questionImage;
     private LinearLayout optionsContainer;
     private Button blankButton;
     private Button exitQuizButton;
@@ -242,6 +243,7 @@ public class MainActivity extends AppCompatActivity {
         progressText = findViewById(R.id.progressText);
         yearText = findViewById(R.id.yearText);
         questionText = findViewById(R.id.questionText);
+        questionImage = findViewById(R.id.questionImage);
         optionsContainer = findViewById(R.id.optionsContainer);
         blankButton = findViewById(R.id.blankButton);
         exitQuizButton = findViewById(R.id.exitQuizButton);
@@ -429,6 +431,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void showQuestionImage(FirQuestion q) {
+        questionImage.setImageDrawable(null);
+        questionImage.setVisibility(View.GONE);
+        if (!AppDatabaseHelper.EIR_COMMUNITY.equals(q.comunidad)) {
+            return;
+        }
+        String path = "eir_imagenes/Imagen_" + q.questionNumber + "_" + q.year + ".png";
+        try (java.io.InputStream in = getAssets().open(path)) {
+            android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeStream(in);
+            if (bitmap != null) {
+                questionImage.setImageBitmap(bitmap);
+                questionImage.setVisibility(View.VISIBLE);
+            }
+        } catch (java.io.IOException ignored) {
+        }
+    }
+
     private void showQuestion() {
         FirQuestion q = selectedQuestions.get(currentIndex);
         currentQuestionStartMs = SystemClock.elapsedRealtime();
@@ -440,6 +459,7 @@ public class MainActivity extends AppCompatActivity {
         questionText.setText(q.statement);
         questionText.setMaxLines(Integer.MAX_VALUE);
         questionText.setEllipsize(null);
+        showQuestionImage(q);
 
         optionsContainer.removeAllViews();
         optionTickBoxes.clear();
@@ -683,7 +703,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String buildQuestionHeader(FirQuestion q) {
         StringBuilder sb = new StringBuilder();
-        if (q.comunidad != null && !q.comunidad.isEmpty()) {
+        if (q.comunidad != null && !q.comunidad.isEmpty() && !AppDatabaseHelper.EIR_COMMUNITY.equals(q.comunidad)) {
             sb.append(q.comunidad).append(" · ");
         }
         sb.append("Año ").append(q.year);
@@ -1082,6 +1102,10 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         final List<String> communities = new ArrayList<>(catalog.keySet());
+        if (UserSettings.isEirSource(this) && catalog.containsKey(AppDatabaseHelper.EIR_COMMUNITY)) {
+            showExamYearMenu(catalog, AppDatabaseHelper.EIR_COMMUNITY);
+            return;
+        }
         android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(
                 this, android.R.layout.simple_list_item_1, communities) {
             @Override
@@ -1133,13 +1157,18 @@ public class MainActivity extends AppCompatActivity {
             labels[i] = "Año " + yearKeys.get(i) + "  (" + years.get(yearKeys.get(i)).size() + " preguntas)"
                     + (ExamScoreStats.isAvailable(this, comunidad, yearKeys.get(i)) ? "  📊 con comparación" : "");
         }
+        final boolean eir = AppDatabaseHelper.EIR_COMMUNITY.equals(comunidad);
         new AlertDialog.Builder(this)
-                .setTitle(comunidad + ": elige examen")
+                .setTitle(eir ? "EXAMENES EIR: elige año" : comunidad + ": elige examen")
                 .setItems(labels, (dialog, which) -> {
                     String year = yearKeys.get(which);
                     confirmStartExam(catalog, comunidad, year, years.get(year));
                 })
-                .setNegativeButton("Atrás", (dialog, which) -> showExamCommunityMenu())
+                .setNegativeButton(eir ? "Cancelar" : "Atrás", (dialog, which) -> {
+                    if (!eir) {
+                        showExamCommunityMenu();
+                    }
+                })
                 .show();
     }
 
@@ -1149,7 +1178,7 @@ public class MainActivity extends AppCompatActivity {
         final int reserves = Math.min(ExamReserves.get(this, comunidad, year), questions.size() - 1);
         new AlertDialog.Builder(this)
                 .setTitle("¿Estás preparado?")
-                .setMessage(comunidad + " · Año " + year + " · " + questions.size() + " preguntas\n\n"
+                .setMessage((AppDatabaseHelper.EIR_COMMUNITY.equals(comunidad) ? "EIR" : comunidad) + " · Año " + year + " · " + questions.size() + " preguntas\n\n"
                         + (reserves > 0
                         ? "Las últimas " + reserves + " son de reserva y no cuentan para la nota.\n\n"
                         : "")

@@ -21,6 +21,7 @@ public final class UserSettings {
     private static final String KEY_LEGISLATION_COMMUNITIES = "legislation_communities";
     private static final String KEY_THEORY_COMMUNITIES_SET = "theory_communities_set";
     private static final String KEY_LEGISLATION_COMMUNITIES_SET = "legislation_communities_set";
+    private static final String KEY_EIR_SOURCE = "eir_source";
     private static final int[] QUIZ_QUESTION_COUNT_OPTIONS = {10, 20, 30, 40, 50};
 
     private static final int DEFAULT_REMINDER_HOUR = 20;
@@ -175,6 +176,18 @@ public final class UserSettings {
         new AppDatabaseHelper(context).markCloudDirty();
     }
 
+    public static boolean isEirSource(Context context) {
+        return getPrefs(context).getBoolean(KEY_EIR_SOURCE, false);
+    }
+
+    public static void saveEirSource(Context context, boolean eir) {
+        if (isEirSource(context) == eir) {
+            return;
+        }
+        getPrefs(context).edit().putBoolean(KEY_EIR_SOURCE, eir).apply();
+        new AppDatabaseHelper(context).markCloudDirty();
+    }
+
     public static Set<String> getTheoryCommunitiesFilter(Context context) {
         return getCommunitiesFilter(context, KEY_THEORY_COMMUNITIES_SET, KEY_THEORY_COMMUNITIES);
     }
@@ -222,6 +235,7 @@ public final class UserSettings {
             json.put(KEY_ACCURACY_THRESHOLD_PERCENT, getAccuracyThresholdPercent(context));
             String examDate = getExamDate(context);
             json.put(KEY_EXAM_DATE, examDate == null ? "" : examDate);
+            json.put(KEY_EIR_SOURCE, isEirSource(context));
             putCommunitiesIfPresent(json, KEY_THEORY_COMMUNITIES, getTheoryCommunitiesFilter(context));
             putCommunitiesIfPresent(json, KEY_LEGISLATION_COMMUNITIES, getLegislationCommunitiesFilter(context));
         } catch (Exception ignored) {
@@ -238,6 +252,9 @@ public final class UserSettings {
         saveAccuracyThresholdPercent(context, json.optInt(KEY_ACCURACY_THRESHOLD_PERCENT, DEFAULT_ACCURACY_THRESHOLD_PERCENT));
         if (json.has(KEY_EXAM_DATE)) {
             saveExamDate(context, json.optString(KEY_EXAM_DATE, ""));
+        }
+        if (json.has(KEY_EIR_SOURCE)) {
+            saveEirSource(context, json.optBoolean(KEY_EIR_SOURCE, false));
         }
         Set<String> theoryCommunities = readCommunitiesArray(json, KEY_THEORY_COMMUNITIES);
         if (theoryCommunities != null) {
