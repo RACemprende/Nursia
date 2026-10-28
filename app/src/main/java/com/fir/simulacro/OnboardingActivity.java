@@ -67,7 +67,7 @@ public class OnboardingActivity extends AppCompatActivity {
         ));
         pages.add(new OnboardingPage(
                 "Cómo jugar",
-                "Responde preguntas de exámenes anteriores. Cada respuesta correcta = 1 punto. Ganarás puntos para canjeables.",
+                "Responde preguntas de exámenes anteriores. Cada respuesta correcta = 1 punto. Ganarás puntos para canjear por premios.",
                 R.drawable.badge_exams_3_img
         ));
         pages.add(new OnboardingPage(
