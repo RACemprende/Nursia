@@ -98,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView finalTimeText;
     private TextView earnedPointsText;
     private Button anotherSimulationButton;
+    private ImageView dailyShareImage;
     private Button restartButton;
     private Button reviewAnswersButton;
     private Button shareDailyButton;
@@ -258,6 +259,7 @@ public class MainActivity extends AppCompatActivity {
         finalTimeText = findViewById(R.id.finalTimeText);
         earnedPointsText = findViewById(R.id.earnedPointsText);
         anotherSimulationButton = findViewById(R.id.anotherSimulationButton);
+        dailyShareImage = findViewById(R.id.dailyShareImage);
         restartButton = findViewById(R.id.restartButton);
         reviewAnswersButton = findViewById(R.id.reviewAnswersButton);
         shareDailyButton = findViewById(R.id.shareDailyButton);
@@ -843,7 +845,7 @@ public class MainActivity extends AppCompatActivity {
             reviewAnswersButton.setVisibility(View.VISIBLE);
         } else {
             resultTitle.setText("Resultado");
-            anotherSimulationButton.setVisibility(View.VISIBLE);
+            anotherSimulationButton.setVisibility(currentQuizMode == QuizMode.DAILY ? View.GONE : View.VISIBLE);
             examComparisonContainer.removeAllViews();
             examComparisonContainer.setVisibility(View.GONE);
             shareExamButton.setVisibility(View.GONE);
@@ -855,8 +857,37 @@ public class MainActivity extends AppCompatActivity {
         shareDailyButton.setVisibility(
                 currentQuizMode == QuizMode.DAILY && examSelectedIndices.size() == selectedQuestions.size()
                         ? View.VISIBLE : View.GONE);
+        showDailyShareImage(currentQuizMode == QuizMode.DAILY && examSelectedIndices.size() == selectedQuestions.size());
         if (rootScrollView != null) {
             rootScrollView.scrollTo(0, 0);
+        }
+    }
+
+    private void showDailyShareImage(boolean show) {
+        dailyShareImage.setImageDrawable(null);
+        dailyShareImage.setVisibility(View.GONE);
+        int n = selectedQuestions.size();
+        if (!show || n == 0 || examSelectedIndices.size() != n) {
+            return;
+        }
+        try {
+            int[] selected = new int[n];
+            int[] correct = new int[n];
+            String[] sources = new String[n];
+            fillDailyShareData(selected, correct, sources);
+            dailyShareImage.setImageBitmap(DailyShareHelper.render(
+                    this, DailySimulacro.currentDayLabel(), selected, correct, sources));
+            dailyShareImage.setVisibility(View.VISIBLE);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void fillDailyShareData(int[] selected, int[] correct, String[] sources) {
+        for (int i = 0; i < selected.length; i++) {
+            selected[i] = examSelectedIndices.get(i);
+            FirQuestion q = selectedQuestions.get(i);
+            correct[i] = q.correctIndex;
+            sources[i] = ((q.comunidad == null ? "" : q.comunidad) + " " + q.year).trim();
         }
     }
 
@@ -869,12 +900,7 @@ public class MainActivity extends AppCompatActivity {
         int[] selected = new int[n];
         int[] correct = new int[n];
         String[] sources = new String[n];
-        for (int i = 0; i < n; i++) {
-            selected[i] = examSelectedIndices.get(i);
-            FirQuestion q = selectedQuestions.get(i);
-            correct[i] = q.correctIndex;
-            sources[i] = ((q.comunidad == null ? "" : q.comunidad) + " " + q.year).trim();
-        }
+        fillDailyShareData(selected, correct, sources);
         DailyShareHelper.share(this, DailySimulacro.currentDayLabel(), selected, correct, sources);
     }
 
@@ -1535,11 +1561,12 @@ public class MainActivity extends AppCompatActivity {
             netasText.setText(String.format(Locale.getDefault(), "NOTA: %.2f", json.getDouble("netas")));
             finalTimeText.setText("Tiempo: " + formatElapsed(json.optLong("elapsedMs", 0L)));
             earnedPointsText.setText("Ya has hecho el reto de hoy. Vuelve mañana para el siguiente.");
-            anotherSimulationButton.setVisibility(View.VISIBLE);
+            anotherSimulationButton.setVisibility(View.GONE);
             buildExamReview();
             examReviewContainer.setVisibility(View.VISIBLE);
             reviewAnswersButton.setVisibility(View.GONE);
             shareDailyButton.setVisibility(View.VISIBLE);
+            showDailyShareImage(true);
             shareExamButton.setVisibility(View.GONE);
             examComparisonContainer.removeAllViews();
             examComparisonContainer.setVisibility(View.GONE);

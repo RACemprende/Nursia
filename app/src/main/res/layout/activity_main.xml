@@ -438,6 +438,16 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
+            <ImageView
+                android:id="@+id/dailyShareImage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:adjustViewBounds="true"
+                android:contentDescription="Imagen del resultado del reto diario"
+                android:scaleType="fitCenter"
+                android:visibility="gone" />
+
             <Button
                 android:id="@+id/anotherSimulationButton"
                 android:layout_width="match_parent"

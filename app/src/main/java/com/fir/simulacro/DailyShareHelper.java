@@ -52,7 +52,7 @@ final class DailyShareHelper {
         }
     }
 
-    private static Bitmap render(Context context, String dateLabel, int[] selected, int[] correct, String[] sources) {
+    static Bitmap render(Context context, String dateLabel, int[] selected, int[] correct, String[] sources) {
         int n = selected.length;
         int hits = 0;
         int wrong = 0;

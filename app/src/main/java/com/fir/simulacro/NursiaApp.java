@@ -17,7 +17,7 @@ public class NursiaApp extends Application {
     // Ultimo dia de uso: pasada esta fecha en el movil, la app queda bloqueada.
     private static final int LAST_DAY_YEAR = 2026;
     private static final int LAST_DAY_MONTH = Calendar.NOVEMBER;
-    private static final int LAST_DAY_OF_MONTH = 8;
+    private static final int LAST_DAY_OF_MONTH = 22;
     private static final String CONTACT_EMAIL = "opotestsplaystore@gmail.com";
 
     static boolean isExpired() {
