@@ -131,53 +131,27 @@
                 android:visibility="gone" />
 
             <Button
-                android:id="@+id/redeemButton"
+                android:id="@+id/customButton"
                 android:layout_width="300dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="28dp"
                 android:background="@drawable/button_home_secondary"
                 android:fontFamily="sans-serif-medium"
                 android:minHeight="52dp"
+                android:text="A MEDIDA"
+                android:textAllCaps="false"
+                android:textColor="@color/ink"
+                android:textSize="17sp" />
+
+            <Button
+                android:id="@+id/redeemButton"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/button_home_secondary"
+                android:fontFamily="sans-serif-medium"
+                android:minHeight="52dp"
                 android:text="CANJEAR"
-                android:textAllCaps="false"
-                android:textColor="@color/ink"
-                android:textSize="17sp" />
-
-            <Button
-                android:id="@+id/failuresButton"
-                android:layout_width="300dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_home_secondary"
-                android:fontFamily="sans-serif-medium"
-                android:minHeight="52dp"
-                android:text="FALLOS"
-                android:textAllCaps="false"
-                android:textColor="@color/ink"
-                android:textSize="17sp" />
-
-            <Button
-                android:id="@+id/doubtsButton"
-                android:layout_width="300dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_home_secondary"
-                android:fontFamily="sans-serif-medium"
-                android:minHeight="52dp"
-                android:text="DUDAS"
-                android:textAllCaps="false"
-                android:textColor="@color/ink"
-                android:textSize="17sp" />
-
-            <Button
-                android:id="@+id/newQuestionsButton"
-                android:layout_width="300dp"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/button_home_secondary"
-                android:fontFamily="sans-serif-medium"
-                android:minHeight="52dp"
-                android:text="NUEVAS"
                 android:textAllCaps="false"
                 android:textColor="@color/ink"
                 android:textSize="17sp" />
@@ -500,6 +474,14 @@
                 android:text="Volver al menú principal"
                 android:textAllCaps="false"
                 android:textColor="@color/ink" />
+
+            <LinearLayout
+                android:id="@+id/examPaceContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="vertical"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/examComparisonContainer"

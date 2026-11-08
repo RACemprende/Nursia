@@ -31,6 +31,9 @@
             android:name=".BadgesActivity"
             android:exported="false" />
         <activity
+            android:name=".CustomPracticeActivity"
+            android:exported="false" />
+        <activity
             android:name=".SettingsActivity"
             android:exported="false" />
         <activity

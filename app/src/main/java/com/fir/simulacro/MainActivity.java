@@ -1,6 +1,7 @@
 package com.fir.simulacro;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -14,10 +15,13 @@ import android.os.SystemClock;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.PopupWindow;
@@ -37,6 +41,7 @@ import org.json.JSONObject;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -70,11 +75,11 @@ public class MainActivity extends AppCompatActivity {
     private TextView resultTitle;
     private LinearLayout examReviewContainer;
     private LinearLayout examComparisonContainer;
+    private LinearLayout examPaceContainer;
+    private final List<Long> examQuestionDurationsMs = new ArrayList<>();
     private Button redeemButton;
     private Button resumePausedButton;
-    private Button failuresButton;
-    private Button doubtsButton;
-    private Button newQuestionsButton;
+    private Button customButton;
     private Button statisticsButton;
     private Button badgesButton;
     private View settingsButton;
@@ -109,6 +114,7 @@ public class MainActivity extends AppCompatActivity {
     private long examStartEpochMs = 0L;
     private boolean timerRunning = false;
     private QuizMode currentQuizMode = QuizMode.ALL;
+    private String customFilterSummary = "";
     private long examLimitMs = 0L;
     private boolean examTimedOut = false;
     private final List<Integer> examSelectedIndices = new ArrayList<>();
@@ -126,6 +132,17 @@ public class MainActivity extends AppCompatActivity {
     private AppDatabaseHelper appDatabaseHelper;
     private FirQuestionsDbHelper firQuestionsDbHelper;
     private QuestionProgressDbHelper questionProgressDbHelper;
+
+    private final ActivityResultLauncher<Intent> customPracticeLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                Intent data = result.getData();
+                if (result.getResultCode() == RESULT_OK && data != null) {
+                    startCustomPractice(
+                            data.getStringExtra(CustomPracticeActivity.EXTRA_TEMA),
+                            data.getStringExtra(CustomPracticeActivity.EXTRA_SUBTEMA),
+                            data.getIntExtra(CustomPracticeActivity.EXTRA_STATE_POSITION, 0));
+                }
+            });
 
     private final ActivityResultLauncher<String> notificationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
@@ -231,11 +248,10 @@ public class MainActivity extends AppCompatActivity {
         resultTitle = findViewById(R.id.resultTitle);
         examReviewContainer = findViewById(R.id.examReviewContainer);
         examComparisonContainer = findViewById(R.id.examComparisonContainer);
+        examPaceContainer = findViewById(R.id.examPaceContainer);
         redeemButton = findViewById(R.id.redeemButton);
         resumePausedButton = findViewById(R.id.resumePausedButton);
-        failuresButton = findViewById(R.id.failuresButton);
-        doubtsButton = findViewById(R.id.doubtsButton);
-        newQuestionsButton = findViewById(R.id.newQuestionsButton);
+        customButton = findViewById(R.id.customButton);
         statisticsButton = findViewById(R.id.statisticsButton);
         badgesButton = findViewById(R.id.badgesButton);
         settingsButton = findViewById(R.id.settingsButton);
@@ -272,25 +288,7 @@ public class MainActivity extends AppCompatActivity {
         examButton.setOnClickListener(v -> showExamCommunityMenu());
         redeemButton.setOnClickListener(v -> startActivity(new Intent(this, RewardsActivity.class)));
         resumePausedButton.setOnClickListener(v -> resumePausedQuiz());
-        failuresButton.setOnClickListener(v -> startSimulation(
-                createStateList("Fallada", "Duda_Fallada"),
-                "No hay preguntas en Fallada o Duda_Fallada.",
-                QuizMode.FAILURES
-        ));
-        doubtsButton.setOnClickListener(v -> {
-            List<FirQuestion> doubtQuestions = loadQuestionsFromDatabase(createStateList("Duda_Primera", "Duda_Segunda"));
-            if (doubtQuestions.isEmpty()) {
-                showDoubtsEmptyDialog();
-            } else {
-                startSimulation(createStateList("Duda_Primera", "Duda_Segunda"),
-                        "No hay preguntas en Duda_Primera o Duda_Segunda.", QuizMode.DOUBTS);
-            }
-        });
-        newQuestionsButton.setOnClickListener(v -> startSimulation(
-                createStateList("Pendiente"),
-                "No hay preguntas pendientes.",
-                QuizMode.NEW
-        ));
+        customButton.setOnClickListener(v -> customPracticeLauncher.launch(new Intent(this, CustomPracticeActivity.class)));
         statisticsButton.setOnClickListener(v -> startActivity(new Intent(this, StatisticsActivity.class)));
         badgesButton.setOnClickListener(v -> startActivity(new Intent(this, BadgesActivity.class)));
         settingsButton.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
@@ -298,7 +296,13 @@ public class MainActivity extends AppCompatActivity {
         blankButton.setOnClickListener(v -> onQuestionMarkedWithoutAnswer("Vacia"));
         exitQuizButton.setOnClickListener(v -> confirmExitQuiz());
         pauseQuizButton.setOnClickListener(v -> pauseQuiz());
-        finishNowButton.setOnClickListener(v -> confirmFinishExamNow());
+        finishNowButton.setOnClickListener(v -> {
+            if (currentQuizMode == QuizMode.CUSTOM) {
+                confirmFinishCustomNow();
+            } else {
+                confirmFinishExamNow();
+            }
+        });
         shareExamButton.setOnClickListener(v -> shareExamResult());
         restartButton.setOnClickListener(v -> showStartScreen());
         shareDailyButton.setOnClickListener(v -> shareDailyResult());
@@ -377,6 +381,7 @@ public class MainActivity extends AppCompatActivity {
         score = 0;
         results.clear();
         examSelectedIndices.clear();
+        examQuestionDurationsMs.clear();
         examTimedOut = false;
         feedbackText.setVisibility(View.GONE);
         nextButton.setVisibility(View.GONE);
@@ -420,13 +425,8 @@ public class MainActivity extends AppCompatActivity {
         if (pendingCountText == null) {
             return;
         }
-        if (currentQuizMode == QuizMode.FAILURES) {
-            int total = loadQuestionsFromDatabase(createStateList("Fallada", "Duda_Fallada")).size();
-            pendingCountText.setText("Fallos pendientes en total: " + total);
-            pendingCountText.setVisibility(View.VISIBLE);
-        } else if (currentQuizMode == QuizMode.DOUBTS) {
-            int total = loadQuestionsFromDatabase(createStateList("Duda_Primera", "Duda_Segunda")).size();
-            pendingCountText.setText("Dudas pendientes en total: " + total);
+        if (currentQuizMode == QuizMode.CUSTOM && !customFilterSummary.isEmpty()) {
+            pendingCountText.setText(customFilterSummary);
             pendingCountText.setVisibility(View.VISIBLE);
         } else {
             pendingCountText.setVisibility(View.GONE);
@@ -465,7 +465,7 @@ public class MainActivity extends AppCompatActivity {
         if (rootScrollView != null) {
             rootScrollView.scrollTo(0, 0);
         }
-        progressText.setText("Pregunta " + (currentIndex + 1) + "/" + selectedQuestions.size());
+        progressText.setText(buildProgressLabel());
         yearText.setText(buildQuestionHeader(q));
         questionText.setText(q.statement);
         questionText.setMaxLines(Integer.MAX_VALUE);
@@ -566,6 +566,8 @@ public class MainActivity extends AppCompatActivity {
                 status
         ));
         examSelectedIndices.add(selectedIndex);
+        examQuestionDurationsMs.add(durationMs);
+        progressText.setText(buildProgressLabel());
 
         questionProgressDbHelper.saveLatestProgress(
                 q.comunidad,
@@ -609,6 +611,8 @@ public class MainActivity extends AppCompatActivity {
                 status
         ));
         examSelectedIndices.add(-1);
+        examQuestionDurationsMs.add(durationMs);
+        progressText.setText(buildProgressLabel());
 
         questionProgressDbHelper.saveLatestProgress(
                 q.comunidad,
@@ -848,15 +852,19 @@ public class MainActivity extends AppCompatActivity {
             resultTitle.setText(examTimedOut ? "Tiempo agotado" : "Resultado del examen");
             anotherSimulationButton.setVisibility(View.GONE);
             buildExamComparison(netas);
+            buildExamPaceChart();
             buildExamReview();
             examReviewContainer.setVisibility(View.GONE);
             reviewAnswersButton.setText("Repasar mis respuestas");
             reviewAnswersButton.setVisibility(View.VISIBLE);
         } else {
             resultTitle.setText("Resultado");
-            anotherSimulationButton.setVisibility(currentQuizMode == QuizMode.DAILY ? View.GONE : View.VISIBLE);
+            anotherSimulationButton.setVisibility(
+                    currentQuizMode == QuizMode.DAILY || currentQuizMode == QuizMode.CUSTOM ? View.GONE : View.VISIBLE);
             examComparisonContainer.removeAllViews();
             examComparisonContainer.setVisibility(View.GONE);
+            examPaceContainer.removeAllViews();
+            examPaceContainer.setVisibility(View.GONE);
             shareExamButton.setVisibility(View.GONE);
             buildExamReview();
             examReviewContainer.setVisibility(View.GONE);
@@ -927,6 +935,44 @@ public class MainActivity extends AppCompatActivity {
         ExamShareHelper.share(this, first.comunidad, first.year, date,
                 scoredCorrectCount(), scoredQuestionCount(), calculateNetas(),
                 formatElapsed(lastElapsedMs), stats);
+    }
+
+    private void buildExamPaceChart() {
+        examPaceContainer.removeAllViews();
+        examPaceContainer.setVisibility(View.GONE);
+        int n = Math.min(examQuestionDurationsMs.size(), results.size());
+        if (n == 0) {
+            return;
+        }
+        int blocks = (n + 4) / 5;
+        double[] xMinutes = new double[blocks];
+        double[] accuracy = new double[blocks];
+        double[] avgSeconds = new double[blocks];
+        long cumulativeMs = 0;
+        for (int b = 0; b < blocks; b++) {
+            int from = b * 5;
+            int to = Math.min(n, from + 5);
+            long blockMs = 0;
+            int correct = 0;
+            for (int i = from; i < to; i++) {
+                blockMs += examQuestionDurationsMs.get(i);
+                if (results.get(i).correct) {
+                    correct++;
+                }
+            }
+            cumulativeMs += blockMs;
+            xMinutes[b] = cumulativeMs / 60000.0;
+            accuracy[b] = correct * 100.0 / (to - from);
+            avgSeconds[b] = blockMs / 1000.0 / (to - from);
+        }
+        examPaceContainer.addView(createReviewText("Aciertos y tiempo cada 5 preguntas", 20, Color.parseColor("#2B2B2B"), true, 0));
+        ExamPaceChartView chart = new ExamPaceChartView(this);
+        chart.setData(xMinutes, accuracy, avgSeconds);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.topMargin = dpToPx(12);
+        examPaceContainer.addView(chart, params);
+        examPaceContainer.setVisibility(View.VISIBLE);
     }
 
     private void buildExamComparison(double netas) {
@@ -1063,9 +1109,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void applyExamUiRestrictions() {
         boolean exam = currentQuizMode == QuizMode.EXAM;
+        boolean custom = currentQuizMode == QuizMode.CUSTOM;
         copyPromptButton.setVisibility(exam ? View.GONE : View.VISIBLE);
-        finishNowButton.setVisibility(exam ? View.VISIBLE : View.GONE);
-        pauseQuizButton.setVisibility(exam ? View.GONE : View.VISIBLE);
+        finishNowButton.setText(custom ? "Terminar" : "Terminar ya");
+        finishNowButton.setVisibility(exam || custom ? View.VISIBLE : View.GONE);
+        pauseQuizButton.setVisibility(exam || custom ? View.GONE : View.VISIBLE);
     }
 
     private void confirmFinishExamNow() {
@@ -1407,7 +1455,13 @@ public class MainActivity extends AppCompatActivity {
                 throw new IllegalStateException("No se han podido restaurar las preguntas del examen en pausa.");
             }
 
-            currentQuizMode = QuizMode.valueOf(json.getString("quizMode"));
+            QuizMode restoredMode;
+            try {
+                restoredMode = QuizMode.valueOf(json.getString("quizMode"));
+            } catch (IllegalArgumentException unknownMode) {
+                restoredMode = QuizMode.ALL;
+            }
+            currentQuizMode = restoredMode;
             currentIndex = Math.max(0, Math.min(json.getInt("currentIndex"), selectedQuestions.size() - 1));
             score = Math.max(0, json.getInt("score"));
             examStartEpochMs = json.optLong("examStartEpochMs", System.currentTimeMillis());
@@ -1661,6 +1715,7 @@ public class MainActivity extends AppCompatActivity {
         score = 0;
         results.clear();
         examSelectedIndices.clear();
+        examQuestionDurationsMs.clear();
         selectedTickIndex = -1;
         syncingTickSelection = false;
         feedbackText.setVisibility(View.GONE);
@@ -1975,9 +2030,7 @@ public class MainActivity extends AppCompatActivity {
     private enum QuizMode {
         HOME(R.drawable.bg_gradient_anim),
         ALL(R.drawable.bg_mode_all),
-        FAILURES(R.drawable.bg_mode_failures),
-        DOUBTS(R.drawable.bg_mode_doubts),
-        NEW(R.drawable.bg_mode_new),
+        CUSTOM(R.drawable.bg_mode_all),
         DAILY(R.drawable.bg_mode_all),
         EXAM(R.drawable.bg_mode_all);
 
@@ -1988,21 +2041,68 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ─── Diálogo explicativo de Dudas vacías ──────────────────────────────────
+    // ─── A MEDIDA ─────────────────────────────────────────────────────────────
 
-    private void showDoubtsEmptyDialog() {
+    private boolean startCustomPractice(String tema, String subtema, int statePosition) {
+        List<FirQuestion> questions = new ArrayList<>();
+        try {
+            for (FirQuestionsDbHelper.QuestionRecord q
+                    : firQuestionsDbHelper.loadQuestionsByTopic(tema, subtema, CustomPracticeActivity.statesFor(statePosition))) {
+                questions.add(new FirQuestion(q.comunidad, q.year, q.questionNumber, q.statement, q.options, q.correctIndex));
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "Error cargando base de preguntas: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            return false;
+        }
+        if (questions.isEmpty()) {
+            Toast.makeText(this, "No hay preguntas con esas condiciones.", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        StringBuilder summary = new StringBuilder(tema == null ? "Todos los temas" : tema);
+        if (subtema != null) {
+            summary.append(" · ").append(subtema);
+        }
+        summary.append(" · ").append(CustomPracticeActivity.STATE_LABELS[statePosition]);
+        customFilterSummary = summary.toString();
+
+        clearPausedQuiz();
+        Collections.shuffle(questions);
+        selectedQuestions = questions;
+        currentQuizMode = QuizMode.CUSTOM;
+        applyBackgroundForMode(QuizMode.CUSTOM);
+        launchQuiz();
+        return true;
+    }
+
+    private String buildProgressLabel() {
+        int total = selectedQuestions.size();
+        if (currentQuizMode == QuizMode.CUSTOM) {
+            return "Llevas " + results.size() + " de " + total + " preguntas";
+        }
+        return "Pregunta " + (currentIndex + 1) + "/" + total;
+    }
+
+    private void confirmFinishCustomNow() {
+        if (!isQuizActive() || currentQuizMode != QuizMode.CUSTOM) {
+            return;
+        }
+        if (results.isEmpty()) {
+            Toast.makeText(this, "Responde al menos una pregunta para terminar.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         new AlertDialog.Builder(this)
-                .setTitle("\uD83E\uDD14  Sección Dudas")
-                .setMessage(
-                        "Aún no tienes preguntas guardadas en esta sección.\n\n" +
-                        "Las dudas se registran cuando al responder marcas también el \u2611 checkbox " +
-                        "de otra opción que te parece posible.\n\n" +
-                        "\u25B6  Marca el \u2611 de la respuesta alternativa que te genera duda.\n" +
-                        "\u25B6  Pulsa la respuesta que crees correcta.\n\n" +
-                        "La pregunta quedará guardada aquí para repasarla más adelante. " +
-                        "Cuantas más preguntas hagas, más se irá llenando esta sección."
-                )
-                .setPositiveButton("Entendido", null)
+                .setTitle("Terminar")
+                .setMessage("Has respondido " + results.size() + " de " + selectedQuestions.size()
+                        + " preguntas. Se terminará aquí y verás tu resultado. ¿Seguro?")
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("Terminar", (dialog, which) -> {
+                    if (!isQuizActive() || currentQuizMode != QuizMode.CUSTOM || results.isEmpty()) {
+                        return;
+                    }
+                    selectedQuestions = new ArrayList<>(selectedQuestions.subList(0, results.size()));
+                    finishSimulation();
+                })
                 .show();
     }
 
