@@ -1,0 +1,6 @@
+Imagenes de preguntas de OPOSICIONES (comunidades autonomas).
+Nombre del archivo: <comunidad>_<año>_<numero de pregunta>.png
+La comunidad va en minusculas, sin tildes y con _ en vez de espacios o guiones.
+Ejemplos: andalucia_2019_82.png, castilla_y_leon_2023_15.png, castilla_la_mancha_2024_7.png, islas_baleares_2019_3.png
+Comunidades validas: asturias, andalucia, aragon, islas_baleares, canarias, cantabria, cataluna, castilla_y_leon, extremadura, madrid, la_rioja, comunidad_valenciana, pais_vasco, ceuta, castilla_la_mancha, murcia, navarra, galicia.
+La imagen se muestra debajo del enunciado de esa pregunta (igual que en eir_imagenes).

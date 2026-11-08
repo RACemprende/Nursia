@@ -436,10 +436,19 @@ public class MainActivity extends AppCompatActivity {
     private void showQuestionImage(FirQuestion q) {
         questionImage.setImageDrawable(null);
         questionImage.setVisibility(View.GONE);
-        if (!AppDatabaseHelper.EIR_COMMUNITY.equals(q.comunidad)) {
+        String path;
+        if (AppDatabaseHelper.EIR_COMMUNITY.equals(q.comunidad)) {
+            path = "eir_imagenes/Imagen_" + q.questionNumber + "_" + q.year + ".png";
+        } else if (q.comunidad != null && !q.comunidad.trim().isEmpty()) {
+            String slug = java.text.Normalizer.normalize(q.comunidad, java.text.Normalizer.Form.NFD)
+                    .replaceAll("\\p{M}+", "")
+                    .toLowerCase(Locale.ROOT)
+                    .replaceAll("[^a-z0-9]+", "_")
+                    .replaceAll("^_+|_+$", "");
+            path = "opos_imagenes/" + slug + "_" + q.year + "_" + q.questionNumber + ".png";
+        } else {
             return;
         }
-        String path = "eir_imagenes/Imagen_" + q.questionNumber + "_" + q.year + ".png";
         try (java.io.InputStream in = getAssets().open(path)) {
             android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeStream(in);
             if (bitmap != null) {
