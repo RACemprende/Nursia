@@ -117,19 +117,19 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         return queryQuestions(db, null, false);
     }
 
-    public synchronized List<QuestionRecord> loadQuestionsByTopic(String tema, String subtema, List<String> states) throws IOException {
+    public synchronized List<QuestionRecord> loadQuestionsByTopic(String tema, String subtema, List<String> states, String texto) throws IOException {
         SQLiteDatabase db = getInitializedDatabase();
-        return queryQuestions(db, states, true, tema, subtema);
+        return queryQuestions(db, states, true, tema, subtema, texto);
     }
 
-    public synchronized int countQuestionsByTopic(String tema, String subtema, List<String> states) throws IOException {
+    public synchronized int countQuestionsByTopic(String tema, String subtema, List<String> states, String texto) throws IOException {
         SQLiteDatabase db = getInitializedDatabase();
         boolean eirSource = UserSettings.isEirSource(context);
         boolean withStates = states != null && !states.isEmpty();
         String alias = "q.";
         StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM ").append(QUESTIONS_VIEW).append(" q ");
         List<String> args = new ArrayList<>();
-        appendQuestionJoinAndFilters(sql, args, withStates, states, eirSource, true, tema, subtema, alias);
+        appendQuestionJoinAndFilters(sql, args, withStates, states, eirSource, true, tema, subtema, texto, alias);
         try (Cursor cursor = db.rawQuery(sql.toString(), args.toArray(new String[0]))) {
             return cursor.moveToFirst() ? cursor.getInt(0) : 0;
         }
@@ -173,7 +173,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
 
     private void appendQuestionJoinAndFilters(StringBuilder sql, List<String> argsList, boolean withStates,
                                               List<String> states, boolean eirSource, boolean applyCommunityFilter,
-                                              String tema, String subtema, String alias) {
+                                              String tema, String subtema, String texto, String alias) {
         if (withStates) {
             sql.append(" JOIN ").append(TABLE_QUESTION_PROGRESS).append(" p ")
                     .append("ON p.comunidad = q.comunidad AND p.year = CAST(q.exam_year AS TEXT) AND p.question_number = CAST(q.question_number AS TEXT) ");
@@ -195,6 +195,19 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
             sql.append(" AND ").append(alias).append("subtema = ?");
             argsList.add(subtema);
         }
+        if (texto != null) {
+            String like = "%" + texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+            sql.append(" AND (");
+            String[] columns = {"question_text", "option_1", "option_2", "option_3", "option_4", "option_5"};
+            for (int i = 0; i < columns.length; i++) {
+                if (i > 0) {
+                    sql.append(" OR ");
+                }
+                sql.append(alias).append(columns[i]).append(" LIKE ? ESCAPE '\\'");
+                argsList.add(like);
+            }
+            sql.append(")");
+        }
         if (applyCommunityFilter && !eirSource) {
             appendCommunityFilter(sql, argsList, alias,
                     UserSettings.getTheoryCommunitiesFilter(context),
@@ -203,16 +216,16 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
     }
 
     private List<QuestionRecord> queryQuestions(SQLiteDatabase db, List<String> states, boolean applyCommunityFilter) {
-        return queryQuestions(db, states, applyCommunityFilter, null, null);
+        return queryQuestions(db, states, applyCommunityFilter, null, null, null);
     }
 
     private List<QuestionRecord> queryQuestions(SQLiteDatabase db, List<String> states, boolean applyCommunityFilter,
-                                                String tema, String subtema) {
+                                                String tema, String subtema, String texto) {
         List<QuestionRecord> questions = new ArrayList<>();
         boolean eirSource = UserSettings.isEirSource(context);
 
         boolean withStates = states != null && !states.isEmpty();
-        String alias = withStates || tema != null || subtema != null ? "q." : "";
+        String alias = withStates || tema != null || subtema != null || texto != null ? "q." : "";
 
         StringBuilder sql = new StringBuilder();
         List<String> argsList = new ArrayList<>();
@@ -231,7 +244,7 @@ public class AppDatabaseHelper extends SQLiteOpenHelper {
         if (!alias.isEmpty()) {
             sql.append(" q");
         }
-        appendQuestionJoinAndFilters(sql, argsList, withStates, states, eirSource, applyCommunityFilter, tema, subtema, alias);
+        appendQuestionJoinAndFilters(sql, argsList, withStates, states, eirSource, applyCommunityFilter, tema, subtema, texto, alias);
         sql.append(" ORDER BY ").append(alias).append("comunidad, ")
                 .append(alias).append("exam_year, ")
                 .append(alias).append("question_number");

@@ -80,10 +80,32 @@
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
-                <Spinner
-                    android:id="@+id/customStateSpinner"
+                <LinearLayout
+                    android:id="@+id/customStateGroup"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="Buscar en enunciado y opciones (opcional)"
+                    android:textColor="@color/muted"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/customSearchInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="Mínimo 3 caracteres, tal cual (con tildes)"
+                    android:imeOptions="actionDone"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:textColor="@color/ink"
+                    android:textSize="16sp" />
 
                 <TextView
                     android:id="@+id/customCountText"

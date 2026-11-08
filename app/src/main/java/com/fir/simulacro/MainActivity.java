@@ -140,7 +140,8 @@ public class MainActivity extends AppCompatActivity {
                     startCustomPractice(
                             data.getStringExtra(CustomPracticeActivity.EXTRA_TEMA),
                             data.getStringExtra(CustomPracticeActivity.EXTRA_SUBTEMA),
-                            data.getIntExtra(CustomPracticeActivity.EXTRA_STATE_POSITION, 0));
+                            data.getIntExtra(CustomPracticeActivity.EXTRA_STATE_POSITION, 0),
+                            data.getStringExtra(CustomPracticeActivity.EXTRA_TEXTO));
                 }
             });
 
@@ -965,7 +966,7 @@ public class MainActivity extends AppCompatActivity {
             accuracy[b] = correct * 100.0 / (to - from);
             avgSeconds[b] = blockMs / 1000.0 / (to - from);
         }
-        examPaceContainer.addView(createReviewText("Aciertos y tiempo cada 5 preguntas", 20, Color.parseColor("#2B2B2B"), true, 0));
+        examPaceContainer.addView(createReviewText("Ritmo de examen", 20, Color.parseColor("#2B2B2B"), true, 0));
         ExamPaceChartView chart = new ExamPaceChartView(this);
         chart.setData(xMinutes, accuracy, avgSeconds);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -1114,6 +1115,7 @@ public class MainActivity extends AppCompatActivity {
         finishNowButton.setText(custom ? "Terminar" : "Terminar ya");
         finishNowButton.setVisibility(exam || custom ? View.VISIBLE : View.GONE);
         pauseQuizButton.setVisibility(exam || custom ? View.GONE : View.VISIBLE);
+        exitQuizButton.setVisibility(custom ? View.GONE : View.VISIBLE);
     }
 
     private void confirmFinishExamNow() {
@@ -2043,11 +2045,11 @@ public class MainActivity extends AppCompatActivity {
 
     // ─── A MEDIDA ─────────────────────────────────────────────────────────────
 
-    private boolean startCustomPractice(String tema, String subtema, int statePosition) {
+    private boolean startCustomPractice(String tema, String subtema, int statePosition, String texto) {
         List<FirQuestion> questions = new ArrayList<>();
         try {
             for (FirQuestionsDbHelper.QuestionRecord q
-                    : firQuestionsDbHelper.loadQuestionsByTopic(tema, subtema, CustomPracticeActivity.statesFor(statePosition))) {
+                    : firQuestionsDbHelper.loadQuestionsByTopic(tema, subtema, CustomPracticeActivity.statesFor(statePosition), texto)) {
                 questions.add(new FirQuestion(q.comunidad, q.year, q.questionNumber, q.statement, q.options, q.correctIndex));
             }
         } catch (Exception e) {
@@ -2064,6 +2066,9 @@ public class MainActivity extends AppCompatActivity {
             summary.append(" · ").append(subtema);
         }
         summary.append(" · ").append(CustomPracticeActivity.STATE_LABELS[statePosition]);
+        if (texto != null) {
+            summary.append(" · \"").append(texto).append("\"");
+        }
         customFilterSummary = summary.toString();
 
         clearPausedQuiz();

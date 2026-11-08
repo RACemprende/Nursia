@@ -25,12 +25,12 @@ public class FirQuestionsDbHelper {
         return mapQuestions(appDatabaseHelper.loadQuestionsByStates(states));
     }
 
-    public List<QuestionRecord> loadQuestionsByTopic(String tema, String subtema, List<String> states) throws IOException {
-        return mapQuestions(appDatabaseHelper.loadQuestionsByTopic(tema, subtema, states));
+    public List<QuestionRecord> loadQuestionsByTopic(String tema, String subtema, List<String> states, String texto) throws IOException {
+        return mapQuestions(appDatabaseHelper.loadQuestionsByTopic(tema, subtema, states, texto));
     }
 
-    public int countQuestionsByTopic(String tema, String subtema, List<String> states) throws IOException {
-        return appDatabaseHelper.countQuestionsByTopic(tema, subtema, states);
+    public int countQuestionsByTopic(String tema, String subtema, List<String> states, String texto) throws IOException {
+        return appDatabaseHelper.countQuestionsByTopic(tema, subtema, states, texto);
     }
 
     public List<String> getAvailableTemas() throws IOException {
